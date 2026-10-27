@@ -19,7 +19,7 @@ flowchart LR
 
 ## 🚀 Detalhamento das Etapas
 
-### [x] Etapa 1: Fundamentação e Baseline (Em Conclusão)
+### [x] Etapa 1: Fundamentação e Baseline (Concluída)
 - [x] Diagnóstico do ambiente Windows (Node.js, npm, PostgreSQL 18, Git).
 - [x] Inicialização do repositório Git local e convenções de `.gitignore`.
 - [x] Estrutura inicial Next.js com TypeScript estrito, Tailwind CSS e Vitest.
@@ -31,19 +31,28 @@ flowchart LR
 
 ---
 
-### [ ] Etapa 2: Persistência Local e Autenticação
+### [x] Etapa 2: Persistência Local e Autenticação (Concluída)
 **Objetivo:** Estabelecer a camada de dados no PostgreSQL local e autenticação de usuários via Better Auth.
-- **Tarefas Principais:**
-  1. Configuração do arquivo `prisma/schema.prisma` com os modelos:
-     - `User`, `Session`, `Account` (para Better Auth).
-     - `Question` (enunciado, domínio, tópico, opções A-D, gabarito, explicação, ativa/inativa).
-     - `ExamAttempt` (usuário, data de início/fim, configuração, nota final, status).
-     - `ExamAnswer` (relação entre tentativa, questão, alternativa escolhida, status: CORRETA, ERRADA, NAO_SEI, NAO_RESPONDIDA).
-  2. Criação do banco `aws_simulado_db` no PostgreSQL local via comando `psql`.
-  3. Execução das migrations iniciais via Prisma (`prisma migrate dev`).
-  4. Configuração das rotas de autenticação do Better Auth (`/api/auth/[...all]`).
-  5. Telas de Cadastro, Login e Perfil do Estudante.
-- **Critério de Aceitação:** Usuário cadastra-se e faz login no PostgreSQL local, e a sessão é validada pelo Next.js.
+- **Tarefas Concluídas:**
+  1. Configuração do schema relacional no `prisma/schema.prisma`:
+     - Modelos de autenticação: `User`, `Session`, `Account`, `Verification`.
+     - Modelo de perfil do estudante: `Profile` (curso ADS, métricas e estatísticas).
+     - Modelos de simulado: `Question`, `ExamAttempt`, `ExamAnswer`.
+  2. Migração versionada gerada e aplicada com sucesso:
+     - `prisma/migrations/20261027184200_init_auth_and_exam_schema/migration.sql` aplicada via `prisma migrate deploy`.
+  3. Configuração do **Better Auth** com adaptador Prisma para PostgreSQL:
+     - Inicialização do backend em `src/lib/auth.ts`.
+     - Cliente React em `src/lib/auth-client.ts`.
+     - Rota Next.js App Router em `/api/auth/[...all]`.
+  4. Telas completas de autenticação e proteção no servidor:
+     - `/cadastro` (registro seguro com validação de senha).
+     - `/login` (autenticação com feedback em tempo real).
+     - `/dashboard` (página privada protegida no servidor com `getServerSession` e exibição de histórico).
+     - Botão de Logout integrado com encerramento de sessão e atualização do estado global.
+  5. Testes automatizados de persistência e isolamento de dados:
+     - `tests/persistence.test.ts`: Testes reais de CRUD, unicidade de e-mail e cascata no PostgreSQL.
+     - `tests/authorization.test.ts`: Testes de Tenant Isolation e proteção contra acesso indevido (IDOR).
+- **Critério de Aceitação:** 100% cumprido — cadastro, login, logout, sessão persistida no PostgreSQL local e proteção validada no servidor.
 
 ---
 
