@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { QuestionPublicView, DONT_KNOW_OPTION_ID } from "../types/exam";
+import { QuestionPublicView, DONT_KNOW_OPTION_ID, ExamMode } from "../types/exam";
 import {
   ChevronLeft,
   ChevronRight,
-  CheckCircle2,
   HelpCircle,
   Bookmark,
   LayoutGrid,
@@ -26,6 +25,7 @@ interface QuestionCardProps {
   onNext: () => void;
   onFinish: () => void;
   isSubmitting?: boolean;
+  mode: ExamMode;
 }
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -42,6 +42,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onNext,
   onFinish,
   isSubmitting = false,
+  mode,
 }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showGridDrawer, setShowGridDrawer] = useState(false);
@@ -163,7 +164,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               Questão <strong className="text-slate-900 font-bold">{currentIndex + 1}</strong> de{" "}
               {totalQuestions}
             </span>
-            <span>{progressPercent}% respondido</span>
+            <span>{answeredCount} de {totalQuestions} respondidas</span>
           </div>
           <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
             <div
@@ -173,13 +174,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </div>
         </div>
 
-        {/* Metadados: Domínio e Tópico */}
+        {/* Metadados: somente o domínio (o tópico pode revelar a resposta) */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md">
             {question.domain}
-          </span>
-          <span className="text-xs font-medium px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200/60 rounded-md">
-            {question.topic}
           </span>
           {isMarked && (
             <span className="text-xs font-bold px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-200 rounded-md flex items-center gap-1">
@@ -225,12 +223,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                       >
                         <HelpCircle className="w-4 h-4" />
                       </div>
-                      <div>
-                        <span className="text-sm font-semibold">{option.text}</span>
-                        <span className="text-xs text-slate-500 block">
-                          Assuma a dúvida pedagógica para gerar simulado de recuperação focado
-                        </span>
-                      </div>
+                      <span className="text-sm font-semibold">{option.text}</span>
                     </div>
                     <div
                       className={`w-5 h-5 rounded-full border flex items-center justify-center ${
@@ -350,8 +343,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 </div>
               )}
               <p className="text-xs text-slate-500 mt-2">
-                Após finalizar, suas respostas serão submetidas ao servidor para correção e o
-                gabarito com as explicações técnicas completas será liberado.
+                {mode === "ESTUDO"
+                  ? "Após finalizar, você verá a nota, o desempenho por domínio e tópico e a explicação de cada questão."
+                  : "Após finalizar, você verá apenas a nota e o desempenho. No Modo Prova não há gabarito nem explicações."}
               </p>
             </div>
 

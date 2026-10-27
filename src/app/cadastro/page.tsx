@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Header } from "@/components/Header";
 import { authClient } from "@/lib/auth-client";
-import { Cloud, Lock, Mail, User, AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Cloud, Lock, Mail, User, AlertCircle, ArrowRight } from "lucide-react";
 
 export default function CadastroPage() {
   const router = useRouter();
@@ -33,7 +33,7 @@ export default function CadastroPage() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await authClient.signUp.email({
+      const { error } = await authClient.signUp.email({
         name,
         email,
         password,
@@ -45,11 +45,10 @@ export default function CadastroPage() {
         return;
       }
 
-      // Redireciona para o dashboard após sucesso
-      router.push("/dashboard");
+      router.push("/simulado");
       router.refresh();
-    } catch (err: any) {
-      setErrorMessage(err?.message || "Ocorreu um erro inesperado.");
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Ocorreu um erro inesperado.");
       setIsLoading(false);
     }
   };

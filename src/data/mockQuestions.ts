@@ -1,7 +1,7 @@
-import { QuestionInternal, ExamDomain } from "../types/exam";
+import { QuestionInternal } from "../types/exam";
 
 // ============================================================================
-// CONJUNTO DE DADOS DE TESTE LOCAL - AWS CLF-C02 (65 QUESTÕES)
+// BANCO INICIAL DE QUESTÕES - AWS CLF-C02
 //
 // AVISO DE TRANSPARÊNCIA:
 // Este conjunto de questões é estritamente local e determinístico, elaborado
@@ -30,7 +30,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-002",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Elasticidade vs Escalabilidade",
+    topic: "Elasticidade e Escalabilidade",
     stem: "Uma loja virtual sofre picos repentinos de acessos durante a Black Friday e precisa que sua infraestrutura provisione e desprovisione capacidade automaticamente conforme o tráfego oscila. Qual conceito da nuvem descreve essa capacidade dinâmica sob demanda?",
     options: [
       { id: "opt_a", text: "Elasticidade." },
@@ -58,7 +58,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-004",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Well-Architected Framework: Confiabilidade",
+    topic: "AWS Well-Architected Framework",
     stem: "Qual pilar do AWS Well-Architected Framework foca na capacidade de uma carga de trabalho mitigar panes, recuperar-se automaticamente de falhas de infraestrutura e atender aos requisitos de continuidade?",
     options: [
       { id: "opt_a", text: "Excelência Operacional." },
@@ -72,7 +72,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-005",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Well-Architected Framework: Eficiência de Performance",
+    topic: "AWS Well-Architected Framework",
     stem: "Uma equipe de desenvolvimento deseja selecionar os tipos de recursos mais adequados (ex: instâncias com GPU ou computação otimizada) para suas cargas de trabalho de processamento intensivo. Qual pilar orienta essa prática?",
     options: [
       { id: "opt_a", text: "Eficiência de Performance." },
@@ -114,7 +114,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-008",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Agilidade e Velocidade de Inovação",
+    topic: "Benefícios da Nuvem (Agilidade e Inovação)",
     stem: "Qual vantagem da computação em nuvem permite que os desenvolvedores criem e destruam ambientes de teste completos em minutos, reduzindo o tempo de lançamento de novos produtos?",
     options: [
       { id: "opt_a", text: "Agilidade." },
@@ -128,7 +128,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-009",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Economia de Escala",
+    topic: "Economia da Nuvem (CapEx vs OpEx)",
     stem: "Por que a AWS consegue repassar constantes reduções de preço aos clientes ao longo dos anos?",
     options: [
       { id: "opt_a", text: "Devido a economias de escala maciças geradas pelo uso agregado de centenas de milhares de clientes globais." },
@@ -156,7 +156,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-011",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Alcance Global em Minutos",
+    topic: "Infraestrutura Global da AWS",
     stem: "Qual vantagem da Nuvem AWS permite que uma startup brasileira lance sua aplicação web para clientes na Europa e na Ásia com latência mínima, implantando recursos em várias Regiões em poucos cliques?",
     options: [
       { id: "opt_a", text: "Alcance Global em Minutos (Go Global in Minutes)." },
@@ -170,7 +170,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-012",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Well-Architected Framework: Excelência Operacional",
+    topic: "AWS Well-Architected Framework",
     stem: "Qual princípio de design do pilar Excelência Operacional recomenda que todas as etapas de configuração de infraestrutura sejam definidas como código e testadas regularmente?",
     options: [
       { id: "opt_a", text: "Executar operações como código (Infrastructure as Code - IaC)." },
@@ -184,13 +184,13 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-013",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Alta Disponibilidade",
+    topic: "Infraestrutura Global da AWS",
     stem: "Para garantir que uma aplicação permaneça acessível mesmo se um data center físico sofrer uma inundação completa, como o arquiteto deve projetar a carga de trabalho na AWS?",
     options: [
-      { id: "opt_a", text: "Distribuir as instâncias entre múltiplas Zonas de Disponibilidade (Multi-AZ) dentro da mesma Região." },
-      { id: "opt_b", text: "Aumentar a memória RAM e a CPU de um único servidor EC2 existente." },
-      { id: "opt_c", text: "Alocar múltiplos endereços IPv4 públicos para o mesmo servidor." },
-      { id: "opt_d", text: "Fazer backup mensal em mídias magnéticas físicas." },
+      { id: "opt_a", text: "Distribuir as instâncias entre múltiplas Zonas de Disponibilidade da mesma Região." },
+      { id: "opt_b", text: "Aumentar a memória e a CPU de uma única instância EC2 maior na mesma Zona." },
+      { id: "opt_c", text: "Alocar vários endereços IP elásticos para a mesma instância em execução." },
+      { id: "opt_d", text: "Agendar snapshots mensais da instância e mantê-los na mesma Zona." },
     ],
     correctOptionId: "opt_a",
     explanation: "As Zonas de Disponibilidade são fisicamente separadas e isoladas contra inundações ou falhas elétricas. Arquiteturas Multi-AZ garantem alta disponibilidade automática.",
@@ -198,7 +198,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-014",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Modelo de Responsabilidade Compartilhada: Serviços Gerenciados",
+    topic: "Modelo de Responsabilidade Compartilhada",
     stem: "Ao utilizar o Amazon RDS (Relational Database Service), qual das tarefas a seguir é de responsabilidade da AWS?",
     options: [
       { id: "opt_a", text: "Aplicação automática de patches no sistema operacional e no motor do banco de dados." },
@@ -212,7 +212,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-015",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Well-Architected Framework: Segurança",
+    topic: "AWS Well-Architected Framework",
     stem: "Qual conceito é fundamental no pilar Segurança do Well-Architected Framework para rastrear e registrar ações executadas no ambiente AWS?",
     options: [
       { id: "opt_a", text: "Habilitar rastreabilidade (auditoria e logs de todas as chamadas de API)." },
@@ -226,7 +226,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d1-016",
     domain: "Domínio 1: Conceitos de Nuvem",
-    topic: "Well-Architected Framework: Sustentabilidade",
+    topic: "AWS Well-Architected Framework",
     stem: "Qual é o objetivo central do pilar de Sustentabilidade introduzido no AWS Well-Architected Framework?",
     options: [
       { id: "opt_a", text: "Minimizar o impacto ambiental e a pegada de carbono da execução de cargas de trabalho em nuvem." },
@@ -244,7 +244,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-001",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "AWS IAM e Princípio do Privilégio Mínimo",
+    topic: "AWS IAM e Princípio do Menor Privilégio",
     stem: "Qual prática recomendada de segurança do AWS Identity and Access Management (IAM) determina que usuários recebam somente as permissões necessárias para cumprir suas funções?",
     options: [
       { id: "opt_a", text: "Princípio do Privilégio Mínimo (Least Privilege)." },
@@ -258,7 +258,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-002",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "Proteção do Usuário Raiz (Root User)",
+    topic: "AWS IAM e Princípio do Menor Privilégio",
     stem: "Qual das seguintes ações é uma recomendação mandatória de segurança da AWS para o usuário raiz (Root User) da conta?",
     options: [
       { id: "opt_a", text: "Habilitar autenticação multifator (MFA) e não utilizar a conta raiz para tarefas administrativas cotidianas." },
@@ -272,7 +272,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-003",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "Security Groups vs Network ACLs",
+    topic: "Security Groups e Network ACLs",
     stem: "Qual é a principal diferença de comportamento de rede entre um Grupo de Segurança (Security Group) e uma Lista de Controle de Acesso de Rede (Network ACL) na Amazon VPC?",
     options: [
       { id: "opt_a", text: "Security Groups mantêm estado (stateful), enquanto Network ACLs não mantêm estado (stateless)." },
@@ -314,7 +314,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-006",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "AWS CloudTrail",
+    topic: "AWS CloudTrail e Auditoria",
     stem: "Qual serviço grava e armazena o histórico completo de chamadas de API executadas na conta AWS (quem acessou, quando e de qual IP), fundamental para auditoria e conformidade?",
     options: [
       { id: "opt_a", text: "AWS CloudTrail." },
@@ -332,9 +332,9 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
     stem: "Qual serviço de segurança utiliza machine learning para analisar logs do CloudTrail, logs de fluxo de VPC e logs de DNS, detectando atividades não autorizadas e comportamento malicioso na conta?",
     options: [
       { id: "opt_a", text: "Amazon GuardDuty." },
-      { id: "opt_b", text: "AWS WAF." },
-      { id: "opt_c", text: "AWS Shield." },
-      { id: "opt_d", text: "AWS Config." },
+      { id: "opt_b", text: "Amazon Inspector." },
+      { id: "opt_c", text: "AWS Security Hub." },
+      { id: "opt_d", text: "Amazon Macie." },
     ],
     correctOptionId: "opt_a",
     explanation: "O Amazon GuardDuty é um serviço de detecção inteligente de ameaças que monitora continuamente comportamentos anômalos (como mineração de criptomoedas ou acessos não reconhecidos).",
@@ -342,7 +342,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-008",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "AWS KMS (Key Management Service)",
+    topic: "AWS KMS e Criptografia",
     stem: "Qual serviço gerenciado é utilizado para criar e controlar chaves de criptografia usadas para proteger dados em repouso nos serviços Amazon S3, EBS e RDS?",
     options: [
       { id: "opt_a", text: "AWS Key Management Service (AWS KMS)." },
@@ -370,7 +370,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-010",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "AWS Artifact",
+    topic: "AWS Artifact e Conformidade",
     stem: "Onde um profissional de conformidade ou auditor pode baixar relatórios oficiais de conformidade da AWS (como SOC 1/2/3, ISO e PCI-DSS) e contratos de segurança?",
     options: [
       { id: "opt_a", text: "AWS Artifact." },
@@ -398,13 +398,13 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-012",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "AWS IAM Roles (Funções)",
+    topic: "AWS IAM e Princípio do Menor Privilégio",
     stem: "Uma instância EC2 precisa salvar arquivos em um bucket do Amazon S3. Qual é a forma recomendada e mais segura de conceder essas permissões à instância?",
     options: [
-      { id: "opt_a", text: "Atribuir uma IAM Role (Função IAM) com permissões ao S3 à instância EC2." },
-      { id: "opt_b", text: "Salvar a Access Key e Secret Key do administrador em um arquivo texto dentro do servidor." },
-      { id: "opt_c", text: "Abrir o bucket do S3 para acesso público irrestrito." },
-      { id: "opt_d", text: "Inserir o usuário e a senha da conta raiz no código da aplicação." },
+      { id: "opt_a", text: "Associar uma função do IAM com a política adequada ao perfil da instância." },
+      { id: "opt_b", text: "Gravar as chaves de acesso de um usuário IAM em um arquivo de configuração da instância." },
+      { id: "opt_c", text: "Tornar o bucket público e restringir o acesso apenas pelo IP da instância." },
+      { id: "opt_d", text: "Inserir as credenciais da conta raiz nas variáveis de ambiente da aplicação." },
     ],
     correctOptionId: "opt_a",
     explanation: "IAM Roles evitam o armazenamento de credenciais de longo prazo em instâncias, fornecendo chaves temporárias gerenciadas automaticamente pelo AWS STS.",
@@ -412,13 +412,13 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-013",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "AWS IAM MFA (Autenticação Multifator)",
+    topic: "AWS IAM e Princípio do Menor Privilégio",
     stem: "O que a autenticação multifator (MFA) acrescenta ao processo tradicional de login no console da AWS?",
     options: [
-      { id: "opt_a", text: "Uma segunda camada de verificação baseada em um código temporário de um dispositivo físico ou aplicativo (algo que você tem)." },
-      { id: "opt_b", text: "Aumento obrigatório da velocidade de tráfego de rede." },
-      { id: "opt_c", text: "Eliminação da exigência de senhas para o usuário." },
-      { id: "opt_d", text: "Bloqueio automático de requisições de outros países." },
+      { id: "opt_a", text: "Um segundo fator de verificação, como um código temporário de um dispositivo." },
+      { id: "opt_b", text: "Uma criptografia adicional aplicada ao tráfego de rede do console." },
+      { id: "opt_c", text: "Uma senha mais longa gerada automaticamente a cada novo login." },
+      { id: "opt_d", text: "Um bloqueio automático de acessos originados de outros países." },
     ],
     correctOptionId: "opt_a",
     explanation: "O MFA exige uma segunda forma de autenticação além da senha tradicional, reduzindo drasticamente o risco de invasões por vazamento de credenciais.",
@@ -426,13 +426,13 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-014",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "AWS Certificate Manager (ACM)",
+    topic: "AWS KMS e Criptografia",
     stem: "Qual serviço permite provisionar, gerenciar e renovar certificados digitais SSL/TLS gratuitos para uso com o CloudFront e Elastic Load Balancers?",
     options: [
       { id: "opt_a", text: "AWS Certificate Manager (ACM)." },
-      { id: "opt_b", text: "AWS KMS." },
+      { id: "opt_b", text: "AWS Key Management Service (KMS)." },
       { id: "opt_c", text: "AWS Directory Service." },
-      { id: "opt_d", text: "Amazon Route 53." },
+      { id: "opt_d", text: "Amazon Route 53 Resolver." },
     ],
     correctOptionId: "opt_a",
     explanation: "O AWS Certificate Manager (ACM) simplifica o provisionamento e a renovação automática de certificados SSL/TLS para conexões HTTPS seguras.",
@@ -440,7 +440,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-015",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "AWS Config",
+    topic: "AWS Config e Security Hub",
     stem: "Qual serviço avalia, audita e monitora continuamente a conformidade das configurações dos recursos da AWS em relação às regras de governança da empresa?",
     options: [
       { id: "opt_a", text: "AWS Config." },
@@ -454,7 +454,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-016",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "Criptografia de Dados em Trânsito vs Repouso",
+    topic: "AWS KMS e Criptografia",
     stem: "Ao configurar conexões HTTPS utilizando protocolos TLS para proteger requisições de clientes até um balanceador de carga, qual tipo de proteção está sendo aplicado?",
     options: [
       { id: "opt_a", text: "Criptografia de dados em trânsito." },
@@ -468,7 +468,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-017",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "AWS Security Hub",
+    topic: "AWS Config e Security Hub",
     stem: "Qual serviço fornece uma visão centralizada e agregada de alertas de segurança de múltiplos serviços (como GuardDuty, Inspector e Firewall Manager) e compara a postura com benchmarks do setor (CIS Benchmarks)?",
     options: [
       { id: "opt_a", text: "AWS Security Hub." },
@@ -482,7 +482,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-018",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "Penetration Testing (Testes de Intrusão)",
+    topic: "AWS Artifact e Conformidade",
     stem: "Qual é a política da AWS em relação à realização de testes de intrusão (pen tests) realizados por clientes em seus próprios recursos hospedados na AWS?",
     options: [
       { id: "opt_a", text: "Os clientes podem realizar testes em uma lista de serviços pré-autorizados (como EC2 e RDS) sem aviso prévio à AWS." },
@@ -496,13 +496,13 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-019",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "Proteção contra Acesso Indevido (IDOR)",
+    topic: "AWS IAM e Princípio do Menor Privilégio",
     stem: "Em uma aplicação web hospedada na AWS, por que as verificações de permissões e autorização devem ser validadas obrigatoriamente no lado do servidor?",
     options: [
-      { id: "opt_a", text: "Porque dados e scripts no lado do cliente (navegador) podem ser manipulados maliciosamente por usuários mal-intencionados." },
-      { id: "opt_b", text: "Porque o navegador processa cálculos de criptografia mais rápido que o servidor." },
-      { id: "opt_c", text: "Porque as regras de firewall de sub-rede bloqueiam requisições GET." },
-      { id: "opt_d", text: "Para evitar custos extras de licença no CloudWatch." },
+      { id: "opt_a", text: "Porque requisições e scripts do navegador podem ser alterados pelo próprio usuário." },
+      { id: "opt_b", text: "Porque o navegador não consegue executar algoritmos de criptografia modernos." },
+      { id: "opt_c", text: "Porque os grupos de segurança bloqueiam validações feitas no lado do cliente." },
+      { id: "opt_d", text: "Porque validações no cliente geram custos adicionais no Amazon CloudWatch." },
     ],
     correctOptionId: "opt_a",
     explanation: "Controles no frontend podem ser burlados facilmente inspecionando código ou enviando requisições HTTP forjadas. Toda validação de propriedade e acesso deve residir no backend.",
@@ -510,7 +510,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d2-020",
     domain: "Domínio 2: Segurança e Conformidade",
-    topic: "AWS CloudHSM",
+    topic: "AWS KMS e Criptografia",
     stem: "Quando uma empresa possui exigências regulatórias estritas que exigem custódia exclusiva de hardware dedicado (FIPS 140-2 Nível 3) para gerenciar chaves criptográficas sem compartilhamento de infraestrutura, qual serviço é indicado?",
     options: [
       { id: "opt_a", text: "AWS CloudHSM." },
@@ -528,7 +528,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-001",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Amazon S3 Classes de Armazenamento",
+    topic: "Amazon S3 e Armazenamento de Objetos",
     stem: "Qual classe do Amazon S3 oferece o menor custo de armazenamento por gigabyte para arquivamento de longa duração, onde a recuperação em até 12 horas é perfeitamente tolerada?",
     options: [
       { id: "opt_a", text: "Amazon S3 Glacier Deep Archive." },
@@ -542,7 +542,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-002",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Opções de Compra de Instâncias EC2",
+    topic: "Amazon EC2 e Opções de Compra",
     stem: "Qual modelo de compra do Amazon EC2 oferece os maiores descontos (podendo chegar a 90%), mas deve ser utilizado somente para processamentos em lote que toleram interrupções inesperadas?",
     options: [
       { id: "opt_a", text: "Instâncias Spot." },
@@ -559,10 +559,10 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
     topic: "Computação Serverless (AWS Lambda)",
     stem: "Qual é a principal característica operacional do serviço serverless AWS Lambda?",
     options: [
-      { id: "opt_a", text: "Executa código em resposta a gatilhos e eventos sem exigir o provisionamento ou gerenciamento de servidores." },
-      { id: "opt_b", text: "Exige a seleção manual de instâncias de máquinas virtuais e instalação de SO." },
-      { id: "opt_c", text: "Cobra uma taxa fixa mensal independentemente do tempo de execução." },
-      { id: "opt_d", text: "Requer conexão exclusiva via cabos de fibra dedicada." },
+      { id: "opt_a", text: "Executa código em resposta a eventos sem provisionar ou gerenciar servidores." },
+      { id: "opt_b", text: "Exige escolher tipos de instância e instalar o sistema operacional manualmente." },
+      { id: "opt_c", text: "Cobra uma taxa mensal fixa, independentemente do tempo de execução do código." },
+      { id: "opt_d", text: "Mantém servidores dedicados ligados continuamente para cada função criada." },
     ],
     correctOptionId: "opt_a",
     explanation: "O AWS Lambda é orientado a eventos: você envia o código, a AWS escala a infraestrutura sob demanda e você paga apenas pelos milissegundos de computação utilizados.",
@@ -570,7 +570,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-004",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Amazon EBS vs Amazon S3",
+    topic: "Amazon EBS (Armazenamento em Bloco)",
     stem: "Uma instância EC2 precisa de um volume de armazenamento em bloco para atuar como o disco de inicialização do sistema operacional. Qual serviço deve ser utilizado?",
     options: [
       { id: "opt_a", text: "Amazon Elastic Block Store (Amazon EBS)." },
@@ -584,7 +584,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-005",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Amazon EFS (Elastic File System)",
+    topic: "Amazon EFS (Sistemas de Arquivos)",
     stem: "Qual serviço de armazenamento fornece um sistema de arquivos gerenciado que pode ser montado e compartilhado simultaneamente por centenas de instâncias EC2 baseadas em Linux?",
     options: [
       { id: "opt_a", text: "Amazon Elastic File System (Amazon EFS)." },
@@ -598,7 +598,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-006",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Bancos de Dados Relacionais (Amazon RDS e Aurora)",
+    topic: "Bancos Relacionais (Amazon RDS e Aurora)",
     stem: "Qual serviço de banco de dados relacional proprietário da AWS oferece alta performance compatível com MySQL e PostgreSQL e replicação automática em 3 Zonas de Disponibilidade?",
     options: [
       { id: "opt_a", text: "Amazon Aurora." },
@@ -612,7 +612,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-007",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Banco de Dados NoSQL (Amazon DynamoDB)",
+    topic: "Bancos NoSQL (Amazon DynamoDB)",
     stem: "Uma aplicação de jogos online precisa de um banco de dados NoSQL de chave-valor totalmente gerenciado que ofereça tempo de resposta consistente de milissegundos de um dígito em qualquer escala. Qual serviço atende a esse requisito?",
     options: [
       { id: "opt_a", text: "Amazon DynamoDB." },
@@ -626,7 +626,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-008",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Cache em Memória (Amazon ElastiCache)",
+    topic: "Cache e Análise de Dados (ElastiCache, Redshift, Athena)",
     stem: "Qual serviço gerenciado em memória (in-memory) é ideal para acelerar consultas e reduzir a carga de leitura em bancos de dados relacionais utilizando Redis ou Memcached?",
     options: [
       { id: "opt_a", text: "Amazon ElastiCache." },
@@ -643,10 +643,10 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
     topic: "Redes Virtuais (Amazon VPC)",
     stem: "O que é uma Amazon Virtual Private Cloud (Amazon VPC)?",
     options: [
-      { id: "opt_a", text: "Uma seção isolada logicamente da Nuvem AWS onde o cliente pode provisionar recursos em uma rede virtual definida por ele." },
-      { id: "opt_b", text: "Um cabo de fibra ótica exclusivo instalado entre o data center do cliente e a AWS." },
-      { id: "opt_c", text: "Um serviço de CDN para cache de vídeos estáticos." },
-      { id: "opt_d", text: "Um banco de dados de alta disponibilidade para chaves SSH." },
+      { id: "opt_a", text: "Uma rede logicamente isolada na qual o cliente define faixas de IP, sub-redes e rotas." },
+      { id: "opt_b", text: "Um cabo de fibra dedicado entre o data center do cliente e uma Região da AWS." },
+      { id: "opt_c", text: "Uma rede de entrega de conteúdo que armazena vídeos em cache nas bordas." },
+      { id: "opt_d", text: "Um banco de dados altamente disponível para armazenar chaves SSH dos clientes." },
     ],
     correctOptionId: "opt_a",
     explanation: "A Amazon VPC dá controle total sobre o ambiente de rede virtual na AWS, incluindo faixas de IP, sub-redes, tabelas de rotas e gateways.",
@@ -654,7 +654,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-010",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Distribuição de Tráfego (Elastic Load Balancing)",
+    topic: "Elastic Load Balancing e Route 53",
     stem: "Qual serviço distribui automaticamente o tráfego de entrada de aplicações entre múltiplos destinos, como instâncias EC2 e contêineres, em uma ou mais Zonas de Disponibilidade?",
     options: [
       { id: "opt_a", text: "Elastic Load Balancing (ELB)." },
@@ -668,7 +668,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-011",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "DNS Gerenciado (Amazon Route 53)",
+    topic: "Elastic Load Balancing e Route 53",
     stem: "Qual serviço altamente disponível e escalável da AWS atua como sistema de resolução de nomes de domínio (DNS) e oferece verificação de integridade de servidores?",
     options: [
       { id: "opt_a", text: "Amazon Route 53." },
@@ -682,7 +682,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-012",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Infraestrutura como Código (AWS CloudFormation)",
+    topic: "Implantação e IaC (CloudFormation e Elastic Beanstalk)",
     stem: "Qual serviço permite modelar e provisionar recursos de infraestrutura da AWS utilizando arquivos de modelo em formato JSON ou YAML?",
     options: [
       { id: "opt_a", text: "AWS CloudFormation." },
@@ -696,7 +696,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-013",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Plataforma como Serviço (AWS Elastic Beanstalk)",
+    topic: "Implantação e IaC (CloudFormation e Elastic Beanstalk)",
     stem: "Uma equipe quer implantar uma aplicação web em Java sem se preocupar em configurar servidores, balanceadores ou escalabilidade manualmente. Qual serviço PaaS da AWS é o mais indicado?",
     options: [
       { id: "opt_a", text: "AWS Elastic Beanstalk." },
@@ -710,13 +710,13 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-014",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Orquestração de Contêineres (Amazon ECS e EKS)",
+    topic: "Contêineres (ECS, EKS e Fargate)",
     stem: "Qual serviço permite executar contêineres Docker e Kubernetes gerenciados na AWS?",
     options: [
-      { id: "opt_a", text: "Amazon Elastic Kubernetes Service (Amazon EKS) e Amazon ECS." },
-      { id: "opt_b", text: "AWS Batch exclusivamente." },
-      { id: "opt_c", text: "Amazon Lightsail sem contêineres." },
-      { id: "opt_d", text: "AWS CodeBuild sem orquestração." },
+      { id: "opt_a", text: "Amazon EKS e Amazon ECS." },
+      { id: "opt_b", text: "AWS Batch e AWS Step Functions." },
+      { id: "opt_c", text: "Amazon Lightsail e AWS Outposts." },
+      { id: "opt_d", text: "AWS CodeBuild e AWS CodeDeploy." },
     ],
     correctOptionId: "opt_a",
     explanation: "Amazon ECS (nativo da AWS) e Amazon EKS (Kubernetes gerenciado) são as duas principais soluções para gerenciar e executar contêineres em escala na AWS.",
@@ -724,7 +724,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-015",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Contêineres Serverless (AWS Fargate)",
+    topic: "Contêineres (ECS, EKS e Fargate)",
     stem: "Qual motor computacional serverless permite executar contêineres no Amazon ECS e EKS sem a necessidade de provisionar ou gerenciar instâncias de servidores virtuais subjacentes?",
     options: [
       { id: "opt_a", text: "AWS Fargate." },
@@ -738,7 +738,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-016",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Filas e Mensageria (Amazon SQS)",
+    topic: "Serviços de Integração (SQS e SNS)",
     stem: "Qual serviço de enfileiramento de mensagens totalmente gerenciado permite desacoplar componentes distribuídos de uma arquitetura de microsserviços?",
     options: [
       { id: "opt_a", text: "Amazon Simple Queue Service (Amazon SQS)." },
@@ -752,13 +752,13 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-017",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Publicação/Assinatura de Notificações (Amazon SNS)",
+    topic: "Serviços de Integração (SQS e SNS)",
     stem: "Qual serviço gerenciado baseado no modelo pub/sub (publicador/assinante) é ideal para enviar notificações instantâneas para múltiplos endpoints como e-mails, SMS e funções Lambda simultaneamente?",
     options: [
       { id: "opt_a", text: "Amazon Simple Notification Service (Amazon SNS)." },
-      { id: "opt_b", text: "Amazon SQS." },
-      { id: "opt_c", text: "Amazon MQ." },
-      { id: "opt_d", text: "Amazon SES." },
+      { id: "opt_b", text: "Amazon Simple Queue Service (Amazon SQS)." },
+      { id: "opt_c", text: "Amazon Simple Email Service (Amazon SES)." },
+      { id: "opt_d", text: "Amazon MQ (message broker gerenciado)." },
     ],
     correctOptionId: "opt_a",
     explanation: "O Amazon SNS distribui mensagens pontilhadas para múltiplos assinantes de forma paralela via pub/sub (um publicador envia e muitos clientes recebem).",
@@ -766,7 +766,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-018",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Monitoramento e Métricas (Amazon CloudWatch)",
+    topic: "Monitoramento com Amazon CloudWatch",
     stem: "Qual serviço monitora métricas de utilização de CPU, volume de rede de instâncias EC2 e permite criar alarmes automáticos que acionam ações de recuperação ou notificações?",
     options: [
       { id: "opt_a", text: "Amazon CloudWatch." },
@@ -780,7 +780,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-019",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Data Warehouse em Escala (Amazon Redshift)",
+    topic: "Cache e Análise de Dados (ElastiCache, Redshift, Athena)",
     stem: "Qual serviço gerenciado de data warehouse em escala de petabytes utiliza processamento massivamente paralelo (MPP) para executar consultas analíticas complexas (OLAP)?",
     options: [
       { id: "opt_a", text: "Amazon Redshift." },
@@ -794,7 +794,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-020",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Migração de Dados Físicos (Família AWS Snow)",
+    topic: "Migração de Dados (Família AWS Snow)",
     stem: "Uma instituição precisa transferir 80 Terabytes de dados de um local remoto com conexão de internet limitada para o Amazon S3. Qual solução com appliance físico resistente deve ser utilizada?",
     options: [
       { id: "opt_a", text: "AWS Snowball Edge." },
@@ -808,7 +808,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-021",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Conexão Dedicada (AWS Direct Connect)",
+    topic: "Redes Virtuais (Amazon VPC)",
     stem: "Qual serviço estabelece uma conexão de rede dedicada e privada entre o data center do cliente e a AWS, contornando a internet pública para reduzir latência e custos de transferência?",
     options: [
       { id: "opt_a", text: "AWS Direct Connect." },
@@ -822,7 +822,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d3-022",
     domain: "Domínio 3: Tecnologia e Serviços de Nuvem",
-    topic: "Consultas SQL Serverless no S3 (Amazon Athena)",
+    topic: "Cache e Análise de Dados (ElastiCache, Redshift, Athena)",
     stem: "Qual serviço interativo sem servidor (serverless) permite analisar dados e logs diretamente no Amazon S3 utilizando consultas SQL padrão, sem necessidade de carregar os dados em um banco?",
     options: [
       { id: "opt_a", text: "Amazon Athena." },
@@ -843,10 +843,10 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
     topic: "AWS Budgets vs AWS Cost Explorer",
     stem: "Qual é a diferença funcional primordial entre o AWS Budgets e o AWS Cost Explorer?",
     options: [
-      { id: "opt_a", text: "O AWS Budgets permite configurar alertas proativos antes que os limites de custos sejam ultrapassados, enquanto o Cost Explorer foca na visualização e análise histórica detalhada dos gastos." },
-      { id: "opt_b", text: "O AWS Budgets é uma ferramenta paga de terceiros, enquanto o Cost Explorer é o único relatório oficial." },
-      { id: "opt_c", text: "O Cost Explorer prevê falhas de segurança, enquanto o Budgets monitora tráfego de rede." },
-      { id: "opt_d", text: "O AWS Budgets só funciona para instâncias EC2, enquanto o Cost Explorer cobre apenas o S3." },
+      { id: "opt_a", text: "O Budgets envia alertas quando os custos ultrapassam limites; o Cost Explorer analisa os gastos históricos." },
+      { id: "opt_b", text: "O Budgets é uma ferramenta paga de terceiros; o Cost Explorer é o único relatório oficial da AWS." },
+      { id: "opt_c", text: "O Cost Explorer detecta falhas de segurança; o Budgets monitora o tráfego de rede das contas." },
+      { id: "opt_d", text: "O Budgets funciona apenas para instâncias EC2; o Cost Explorer cobre somente o Amazon S3." },
     ],
     correctOptionId: "opt_a",
     explanation: "O AWS Budgets atua com alertas proativos de teto de gastos orçados, enquanto o AWS Cost Explorer é usado para visualizar, analisar e compreender os gastos históricos e tendências futuras.",
@@ -868,13 +868,13 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d4-003",
     domain: "Domínio 4: Faturamento, Preços e Suporte",
-    topic: "Planos de Suporte da AWS: Enterprise Support",
-    stem: "Qual benefício EXCLUSIVO do plano de suporte AWS Enterprise Support fornece um executivo técnico dedicado (TAM - Technical Account Manager) para orientar a empresa proativamente?",
+    topic: "Planos de Suporte da AWS",
+    stem: "Qual benefício é EXCLUSIVO do plano AWS Enterprise Support, quando comparado aos planos Developer e Business?",
     options: [
-      { id: "opt_a", text: "Acesso a um Technical Account Manager (TAM) dedicado." },
-      { id: "opt_b", text: "Acesso a documentação pública e fóruns da comunidade." },
-      { id: "opt_c", text: "Desconto obrigatório de 50% em todos os serviços." },
-      { id: "opt_d", text: "Servidores físicos entregues na sede da empresa." },
+      { id: "opt_a", text: "Um Technical Account Manager (TAM) designado para a conta." },
+      { id: "opt_b", text: "Acesso 24x7 a engenheiros de suporte por telefone e chat." },
+      { id: "opt_c", text: "Acesso ao conjunto completo de verificações do AWS Trusted Advisor." },
+      { id: "opt_d", text: "Suporte a software de terceiros em casos técnicos." },
     ],
     correctOptionId: "opt_a",
     explanation: "O plano Enterprise inclui um TAM (Technical Account Manager) dedicado que atua como o ponto de contato primário para planejamento arquitetural e revisões proativas.",
@@ -882,13 +882,13 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d4-004",
     domain: "Domínio 4: Faturamento, Preços e Suporte",
-    topic: "Faturamento Consolidado (Consolidated Billing)",
+    topic: "Faturamento Consolidado (AWS Organizations)",
     stem: "Como o Faturamento Consolidado do AWS Organizations ajuda a reduzir os custos operacionais de uma empresa com múltiplas contas?",
     options: [
-      { id: "opt_a", text: "Agregando o consumo de todas as contas vinculadas em uma fatura única para alcançar faixas de desconto por volume mais altas em serviços como o Amazon S3." },
-      { id: "opt_b", text: "Eliminando as taxas de transferência de dados entre Regiões diferentes." },
-      { id: "opt_c", text: "Cancelando automaticamente instâncias não utilizadas sem aviso prévio." },
-      { id: "opt_d", text: "Concedendo créditos infinitos para contas de desenvolvimento." },
+      { id: "opt_a", text: "Somando o uso de todas as contas para atingir faixas de desconto por volume mais altas." },
+      { id: "opt_b", text: "Eliminando as cobranças de transferência de dados entre Regiões diferentes da AWS." },
+      { id: "opt_c", text: "Encerrando automaticamente instâncias ociosas em todas as contas vinculadas." },
+      { id: "opt_d", text: "Concedendo créditos gratuitos permanentes para as contas de desenvolvimento." },
     ],
     correctOptionId: "opt_a",
     explanation: "O Faturamento Consolidado soma o uso de todas as contas associadas para atingir faixas mais baratas de precificação em camadas por volume de armazenamento ou tráfego.",
@@ -924,7 +924,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d4-007",
     domain: "Domínio 4: Faturamento, Preços e Suporte",
-    topic: "AWS Free Tier (Nível Gratuito da AWS)",
+    topic: "AWS Free Tier",
     stem: "Quais são os três tipos distintos de ofertas disponibilizadas no Nível Gratuito da AWS (AWS Free Tier)?",
     options: [
       { id: "opt_a", text: "Sempre gratuito, 12 meses gratuitos a partir do cadastro e testes de curto prazo." },
@@ -938,7 +938,7 @@ export const MOCK_QUESTIONS: QuestionInternal[] = [
   {
     id: "clf-d4-008",
     domain: "Domínio 4: Faturamento, Preços e Suporte",
-    topic: "Savings Plans vs Instâncias Reservadas",
+    topic: "Savings Plans e Instâncias Reservadas",
     stem: "Qual modelo flexível de redução de custos oferece descontos significativos (de até 72%) mediante um compromisso financeiro de uso constante medido em dólares por hora ($/hora) por um período de 1 ou 3 anos?",
     options: [
       { id: "opt_a", text: "Savings Plans." },

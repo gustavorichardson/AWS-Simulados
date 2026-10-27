@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Cloud, ShieldCheck, User, LogIn, LayoutDashboard } from "lucide-react";
+import { Cloud, LogIn, LayoutDashboard, PlayCircle } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 
 interface HeaderProps {
@@ -40,13 +40,15 @@ export const Header: React.FC<HeaderProps> = ({ onReset }) => {
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4 text-xs">
-          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-700/50 text-emerald-300">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span className="font-medium">PostgreSQL Local</span>
-          </div>
-
           {session?.user ? (
             <div className="flex items-center gap-2">
+              <Link
+                href="/simulado"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 font-medium transition-all"
+              >
+                <PlayCircle className="w-3.5 h-3.5" />
+                Simulados
+              </Link>
               <Link
                 href="/dashboard"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold transition-all"

@@ -26,12 +26,27 @@ export interface QuestionOption {
 }
 
 // Visualização enviada ao navegador (SECRETA / PROTEGIDA: sem gabarito)
+// Visão pública enviada durante o simulado: sem gabarito, sem explicação e sem tópico
+// (o nome do tópico pode revelar o serviço/conceito da resposta correta).
 export interface QuestionPublicView {
   id: string;
   domain: ExamDomain;
-  topic: string;
   stem: string;
   options: QuestionOption[];
+}
+
+export type ExamMode = "ESTUDO" | "PROVA";
+export const EXAM_MODES: ExamMode[] = ["ESTUDO", "PROVA"];
+
+export interface TopicPerformance {
+  topic: string;
+  domain: ExamDomain;
+  total: number;
+  correct: number;
+  incorrect: number;
+  dontKnow: number;
+  unanswered: number;
+  percentage: number;
 }
 
 // Representação completa armazenada no servidor ou banco de dados
@@ -87,8 +102,19 @@ export interface ExamEvaluationResult {
       unanswered: number;
     }
   >;
+  topicBreakdown: TopicPerformance[];
   recoveryTopics: string[]; // Tópicos onde houve erro ou marcação de "Não sei"
   detailedAnswers: EvaluatedAnswer[];
+}
+
+// Resultado enviado ao cliente após a finalização.
+// No Modo Prova, detailedAnswers é omitido (sem gabarito e sem explicações).
+export interface ExamResultView extends Omit<ExamEvaluationResult, "detailedAnswers"> {
+  attemptId: string;
+  mode: ExamMode;
+  isRecovery: boolean;
+  finishedAt: string | null;
+  detailedAnswers?: EvaluatedAnswer[];
 }
 
 export interface ExamConfig {

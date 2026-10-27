@@ -7,12 +7,12 @@ import {
   ExamEvaluationResult,
   EvaluatedAnswer,
   AnswerStatus,
-  ExamDomain,
   EXAM_DOMAINS,
   DONT_KNOW_OPTION_ID,
   DONT_KNOW_OPTION_TEXT,
   VALID_QUESTION_COUNTS,
   ValidQuestionCount,
+  TopicPerformance,
 } from "../types/exam";
 
 /**
@@ -46,7 +46,6 @@ export function sanitizeQuestion(question: QuestionInternal): QuestionPublicView
   return {
     id: question.id,
     domain: question.domain,
-    topic: question.topic,
     stem: question.stem,
     options: formattedOptions,
   };
@@ -78,6 +77,7 @@ export function evaluateExam(
   let unansweredCount = 0;
 
   const recoveryTopicsSet = new Set<string>();
+  const topicMap = new Map<string, TopicPerformance>();
 
   // Inicializa a distribuição por domínios
   const domainBreakdown = EXAM_DOMAINS.reduce((acc, domain) => {
@@ -119,6 +119,26 @@ export function evaluateExam(
       if (status === "NAO_SEI") domainBreakdown[q.domain].dontKnow++;
       if (status === "NAO_RESPONDIDA") domainBreakdown[q.domain].unanswered++;
     }
+
+    let topicStats = topicMap.get(q.topic);
+    if (!topicStats) {
+      topicStats = {
+        topic: q.topic,
+        domain: q.domain,
+        total: 0,
+        correct: 0,
+        incorrect: 0,
+        dontKnow: 0,
+        unanswered: 0,
+        percentage: 0,
+      };
+      topicMap.set(q.topic, topicStats);
+    }
+    topicStats.total++;
+    if (status === "CORRETA") topicStats.correct++;
+    if (status === "ERRADA") topicStats.incorrect++;
+    if (status === "NAO_SEI") topicStats.dontKnow++;
+    if (status === "NAO_RESPONDIDA") topicStats.unanswered++;
 
     // Prepara as opções completas para a revisão pós-exame
     const reviewOptions: QuestionOption[] = [
@@ -167,6 +187,9 @@ export function evaluateExam(
     estimatedScaledScore,
     isPassed,
     domainBreakdown,
+    topicBreakdown: Array.from(topicMap.values())
+      .map((t) => ({ ...t, percentage: Math.round((t.correct / t.total) * 100) }))
+      .sort((a, b) => a.percentage - b.percentage || a.topic.localeCompare(b.topic)),
     recoveryTopics: Array.from(recoveryTopicsSet),
     detailedAnswers,
   };

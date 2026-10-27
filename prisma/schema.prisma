@@ -1,5 +1,4 @@
 // Configuração do Prisma ORM para a plataforma AWS Simulados (CLF-C02)
-// Banco de dados: PostgreSQL instalado localmente no Windows
 
 generator client {
   provider = "prisma-client-js"
@@ -107,11 +106,14 @@ model Question {
   explanation      String       @db.Text // Justificativa técnica liberada pós-prova
   documentationUrl String?
   difficulty       String       @default("HARD") // "EASY" | "MEDIUM" | "HARD"
+  stemHash         String       @unique // Hash normalizado do enunciado (deduplicação)
+  source           String       @default("BANCO_INICIAL") // "BANCO_INICIAL" | "GERADA"
   isActive         Boolean      @default(true)
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   answers          ExamAnswer[]
 
+  @@index([domain, topic])
   @@map("questions")
 }
 
@@ -120,7 +122,14 @@ model ExamAttempt {
   userId               String
   questionCount        Int          // 15, 30, 45 ou 65
   selectedDomains      String[]     // Lista de domínios escolhidos
+  selectedSubtopics    String[]     @default([])
+  mode                 String       @default("PROVA") // "PROVA" | "ESTUDO"
   isRecovery           Boolean      @default(false)
+  sourceAttemptId      String?      // Simulado de origem (simulado de recuperação)
+  correctCount         Int?
+  incorrectCount       Int?
+  dontKnowCount        Int?
+  unansweredCount      Int?
   percentageScore      Int?         // 0 a 100%
   estimatedScaledScore Int?         // 100 a 1000
   isPassed             Boolean?
@@ -129,6 +138,7 @@ model ExamAttempt {
   user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   answers              ExamAnswer[]
 
+  @@index([userId])
   @@map("exam_attempts")
 }
 
@@ -137,7 +147,9 @@ model ExamAnswer {
   attemptId        String
   questionId       String
   selectedOptionId String?     // "opt_a" | "opt_b" | "opt_c" | "opt_d" | "opt_dont_know" | null
-  status           String      // "CORRETA" | "ERRADA" | "NAO_SEI" | "NAO_RESPONDIDA"
+  status           String      @default("NAO_RESPONDIDA") // "CORRETA" | "ERRADA" | "NAO_SEI" | "NAO_RESPONDIDA"
+  position         Int         @default(0) // Ordem da questão no simulado
+  optionOrder      String[]    @default([]) // Ordem embaralhada das alternativas exibidas
   answeredAt       DateTime    @default(now())
   attempt          ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question         Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)

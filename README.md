@@ -2,21 +2,21 @@
 
 Plataforma educacional interativa de simulados para o exame **AWS Certified Cloud Practitioner (CLF-C02)**, desenvolvida com foco em aprendizado real, identificação de lacunas de conhecimento e preparação para certificação.
 
-Projeto desenvolvido com **Next.js 15 (App Router)**, **TypeScript**, **Tailwind CSS**, **Prisma ORM**, **Better Auth** e **PostgreSQL local**.
+Projeto desenvolvido com Next.js 15 (App Router), TypeScript, Tailwind CSS, Prisma, Better Auth e PostgreSQL local.
 
 ---
 
 ## 🎯 Destaques do Projeto
 
-- **Pedagogia com a Opção "Não sei":** Todas as questões trazem 4 alternativas reais (A, B, C, D) e uma 5ª opção obrigatória: `"Não sei"`. Evita o chute cego e diagnostica o que você realmente precisa estudar.
-- **Tamanhos Oficiais e de Estudo:** Simulados com **15, 30, 45 ou 65 questões** (65 é o tamanho oficial da prova AWS).
-- **Dificuldade Fixa (Difícil):** Questões desafiadoras baseadas em cenários situacionais do exame CLF-C02.
-- **Seleção Inteligente de Tópicos:** Opção "Todos os tópicos" opera com exclusividade estrita em relação à seleção granular de domínios.
-- **Navegação Completa e Revisão:** Drawer de grade rápida para saltar para qualquer questão (1 a N), contador de progresso e botão "Marcar para revisão" com bandeira visual.
-- **Persistência de Progresso:** Progresso da prova salvo no `localStorage` em tempo real e sincronizado com o PostgreSQL local; se a página for recarregada, você continua de onde parou.
-- **Proteção do Gabarito:** O navegador nunca recebe as respostas corretas durante o exame. Toda validação ocorre no backend.
-- **Simulado de Recuperação:** Capacidade de gerar novos simulados direcionados especificamente aos tópicos onde você errou ou teve dúvidas.
-- **100% Local e Gratuito:** Roda integralmente no seu ambiente Windows, sem dependência de Docker, serviços pagos ou nuvens externas nesta fase. Não utiliza IA nesta etapa.
+- **Login obrigatório:** a entrada é a página de login/cadastro; simulados, histórico e APIs só funcionam com sessão válida.
+- **Modo Estudo e Modo Prova:** no Estudo, ao finalizar você vê a nota, os relatórios e a explicação de todas as questões; na Prova, somente a nota e os relatórios (sem gabarito nem explicações).
+- **Opção "Não sei":** 4 alternativas reais + "Não sei", para separar dúvida de erro.
+- **Tamanhos:** 15, 30, 45 ou 65 questões.
+- **Sem pistas durante a prova:** o navegador recebe só enunciado, domínio e alternativas (embaralhadas por tentativa). Tópico, gabarito e explicação ficam no servidor.
+- **Sem repetição:** questões já apresentadas ao usuário não voltam enquanto houver inéditas; se faltarem, novas questões são geradas, validadas contra duplicatas e pistas, e salvas no banco.
+- **Relatórios:** acertos, erros, "Não sei", não respondidas, percentual, pontuação estimada, desempenho por domínio e por tópico e revisão detalhada (Modo Estudo).
+- **"Gerar simulado com os tópicos em que errei":** novo simulado só com os tópicos de erro/"Não sei", sem reutilizar questões vistas.
+- **Progresso salvo no servidor:** recarregar a página ou voltar pelo histórico continua o simulado.
 
 ---
 
@@ -69,53 +69,62 @@ Abra o navegador em: [http://localhost:3000](http://localhost:3000).
 
 | Comando | Descrição |
 |---|---|
-| `npm run dev` | Inicia o servidor local Next.js em modo de desenvolvimento (`localhost:3000`) |
-| `npm run test` | Executa os testes automatizados com Vitest |
-| `npm run test:watch` | Executa os testes em modo interativo e contínuo |
-| `npm run typecheck` | Executa a verificação estrita de tipos do TypeScript (`tsc --noEmit`) |
-| `npm run build` | Compila a aplicação para produção |
-| `npm run start` | Inicia a versão de produção compilada localmente |
-| `npm run prisma:generate` | Gera o cliente tipado do Prisma a partir do schema |
-| `npm run prisma:push` | Sincroniza o schema do Prisma com o banco PostgreSQL local |
+| `npm run dev` | Servidor de desenvolvimento (`localhost:3000`) |
+| `npm run test` | Testes unitários e de integração (Vitest, exige PostgreSQL local) |
+| `npm run test:e2e` | Testes de navegador (Playwright) contra o build de produção — rode `npm run build` antes e, na primeira vez, `npx playwright install chromium` |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run build` / `npm run start` | Build e execução de produção |
+| `npx prisma migrate deploy` | Aplica as migrations no banco local |
 
 ---
 
-## 📁 Estrutura do Repositório
+## 🗂️ Estrutura Principal
 
 ```text
-awsSimulado/
-├── .gemini/                    # Regras locais e persistentes do assistente/agente
-├── src/
-│   ├── app/                    # Rotas e páginas do Next.js (App Router)
-│   │   ├── layout.tsx          # Layout raiz da aplicação
-│   │   ├── page.tsx            # Página inicial (Configuração e Simulado Demonstrativo)
-│   │   └── globals.css         # Estilização global e Tailwind CSS
-│   ├── components/             # Componentes React modulares
-│   │   ├── ExamConfigCard.tsx  # Seleção de tópicos e quantidade de questões
-│   │   ├── QuestionCard.tsx    # Card de questão (4 alternativas + "Não sei")
-│   │   └── ExamSummary.tsx     # Demonstração de cálculo e diagnóstico pedagógico
-│   ├── data/                   # Questões simuladas para demonstração e testes
-│   │   └── mockQuestions.ts
-│   ├── lib/                    # Regras de negócio, avaliador e utilitários
-│   │   └── examEngine.ts       # Motor puro de cálculo, validação e sanitização
-│   └── types/                  # Tipagens TypeScript compartilhadas
-│       └── exam.ts
-├── tests/                      # Suíte de testes automatizados (Vitest)
-│   └── examEngine.test.ts
-├── .env.example                # Template seguro de variáveis de ambiente
-├── .gitignore                  # Arquivos e diretórios ignorados pelo Git
-├── AGENTS.md                   # Diretrizes permanentes para agentes de IA
-├── IMPLEMENTATION_PLAN.md      # Roteiro das próximas etapas do projeto
-├── PROJECT_SPEC.md             # Especificação técnica e pedagógica completa
-├── package.json                # Dependências e scripts do projeto
-├── tsconfig.json               # Configurações do compilador TypeScript
-└── vitest.config.ts            # Configuração da suíte de testes
+src/
+├── app/
+│   ├── page.tsx                  # Redireciona para /login ou /simulado
+│   ├── login/, cadastro/         # Páginas públicas (redirecionam se já logado)
+│   ├── simulado/page.tsx         # Configuração, prova e resultado (protegida)
+│   ├── dashboard/page.tsx        # Histórico do usuário (protegida)
+│   └── api/simulados/...         # iniciar, [id], progresso, finalizar, resultado, recuperacao
+├── components/                   # SimuladoClient, ExamConfigCard, QuestionCard, ExamSummary, Header
+├── lib/
+│   ├── exam-service.ts           # Regras do simulado com verificação de posse
+│   ├── question-generator.ts     # Seleção sem repetição + geração quando faltar
+│   ├── question-quality.ts       # Duplicatas aproximadas e detecção de pistas
+│   ├── gemini.ts                 # Geração de questões (somente servidor)
+│   ├── examEngine.ts             # Sanitização e correção
+│   └── api.ts, auth.ts, server-auth.ts
+├── middleware.ts                 # Bloqueia páginas/APIs sem cookie de sessão
+└── data/mockQuestions.ts         # Banco inicial (66 questões)
+prisma/
+├── schema.prisma, migrations/
+└── sql/least-privilege-role.sql  # Usuário do banco com privilégios mínimos
+tests/                            # Vitest (unit/integração) e tests/e2e (Playwright)
 ```
 
 ---
 
-## 🔒 Princípios de Segurança do Projeto
+## 🔒 Segurança
 
-1. **Gabarito Seguro:** O gabarito das questões nunca é trafegado para o cliente durante uma tentativa. O estudante recebe apenas o enunciado e as alternativas.
-2. **Sem Segredos Versionados:** Chaves de API e senhas de banco jamais são commitadas no Git.
-3. **Sem Serviços Remotos Obrigatórios:** Todo o desenvolvimento e validação é executado localmente.
+1. **Gabarito protegido:** durante a prova o servidor envia apenas enunciado, domínio e alternativas. No Modo Prova, gabarito e explicações nunca são enviados, nem depois de finalizar.
+2. **Isolamento entre contas:** toda consulta filtra por `userId` da sessão; simulado de outra conta responde 404. Testado em `tests/examService.test.ts`, `tests/apiRoutes.test.ts` e `tests/e2e/simulado.spec.ts`.
+3. **Correção no servidor:** as questões de cada tentativa ficam gravadas no banco; IDs enviados pelo cliente não alteram a correção.
+4. **Banco com privilégios mínimos:** execute `prisma/sql/least-privilege-role.sql` como dono do banco e use o usuário `aws_simulado_app` na `DATABASE_URL` da aplicação (migrations continuam com o dono).
+5. **Sem segredos versionados:** `.env` e `.env.local` ficam fora do Git.
+
+---
+
+## ✅ Resultados da Verificação
+
+Executados em 27/10/2026 (Ubuntu, Node 24.19, PostgreSQL local). Detalhes em `IMPLEMENTATION_PLAN.md`.
+
+| Verificação | Resultado |
+|---|---|
+| `npm run test` | 11 arquivos, 56 testes aprovados (também com o usuário de privilégios mínimos) |
+| `npm run test:e2e` | 3 testes de navegador aprovados |
+| `npm run lint` | sem avisos nem erros |
+| `npm run typecheck` | sem erros |
+| `npm run build` | concluído |

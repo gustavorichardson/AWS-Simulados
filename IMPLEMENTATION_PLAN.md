@@ -82,44 +82,44 @@ flowchart LR
 
 ---
 
-### [ ] Etapa 4: Motor de Correção, Diagnóstico e Simulado de Recuperação
-**Objetivo:** Avaliar tentativas, gerar relatórios pedagógicos detalhados e viabilizar a recuperação.
-- **Tarefas Principais:**
-  1. Endpoint de submissão do exame (`POST /api/simulados/[id]/finalizar`):
-     - Recebe array de `{ questionId, selectedOptionId }`.
-     - Valida contra as respostas corretas no PostgreSQL.
-     - Computa pontuação e categoriza cada item em: `CORRETA`, `ERRADA`, `NAO_SEI`, `NAO_RESPONDIDA`.
-  2. Página de Resultados:
-     - Percentual geral e status (Aprovado / Precisa Praticar).
-     - Gráfico de desempenho por Domínio do CLF-C02.
-     - Diferenciação visual entre "Erros Conceituais" e "Dúvidas Assumidas (Não sei)".
-     - Liberação do gabarito comentado para estudo pós-prova.
-  3. Simulado de Recuperação:
-     - Botão "Gerar Simulado de Recuperação" a partir dos resultados.
-     - Monta um teste com os tópicos/questões onde o estudante pontuou `ERRADA` ou `NAO_SEI`.
-- **Critério de Aceitação:** Correção precisa com relatório diagnóstico e geração instantânea de simulado de recuperação.
+### [x] Etapa 4: Correção, Diagnóstico, Modos e Simulado de Recuperação (Concluída)
+- [x] Login obrigatório: `/` redireciona para `/login` (ou `/simulado` se já autenticado); `/simulado`, `/dashboard` e todas as APIs de simulado exigem sessão válida no servidor (middleware + verificação em cada página/rota). Usuário convidado removido.
+- [x] Escolha obrigatória entre **Modo Estudo** (nota, relatórios e explicação de todas as questões) e **Modo Prova** (somente nota e relatórios; o servidor não envia gabarito nem explicações).
+- [x] Serviço único no servidor (`src/lib/exam-service.ts`) com rotas: `POST /api/simulados/iniciar`, `GET /api/simulados/[id]`, `PATCH /api/simulados/[id]/progresso`, `POST /api/simulados/[id]/finalizar`, `GET /api/simulados/[id]/resultado`, `POST /api/simulados/[id]/recuperacao`.
+- [x] Questões persistidas por tentativa (`ExamAnswer` criado no início com posição e ordem embaralhada das alternativas); a correção usa somente o banco, nunca IDs enviados pelo cliente.
+- [x] Relatório: acertos, erros, "Não sei", não respondidas, percentual, pontuação estimada, desempenho por domínio e por tópico e revisão detalhada (somente no Modo Estudo). Disponível também pelo histórico (`/simulado?resultado=<id>`).
+- [x] Botão **"Gerar simulado com os tópicos em que errei"**: usa somente os tópicos com `ERRADA` ou `NAO_SEI`, mantém o modo, marca `isRecovery` e nunca reutiliza questões já apresentadas ao usuário (se faltarem inéditas, informa em vez de repetir).
+- [x] Sem pistas durante a prova: tópico removido da tela e do payload (o nome do tópico revelava o serviço correto), texto sugestivo da opção "Não sei" removido, alternativas embaralhadas por tentativa (62 das 66 questões do banco tinham a correta na letra A) e 13 questões do banco reescritas por terem a correta muito mais longa ou com termos repetidos do enunciado.
+- [x] Interface sem menções às tecnologias internas.
+
+### [x] Etapa 5: Ampliação do Banco de Questões no Servidor (Concluída)
+- [x] Seleção sem repetição (`src/lib/question-generator.ts`): primeiro questões inéditas do banco; se faltarem, gera novas no servidor; reutiliza vistas (as mais antigas) só em simulados normais e só quando o banco do tópico se esgota; nunca repete dentro do mesmo simulado.
+- [x] Validação antes de usar (`src/lib/question-quality.ts`): estrutura, subtópico permitido, hash do enunciado, duplicata aproximada (Jaccard ≥ 0,6) e detecção de pistas (correta muito mais longa, enunciado com termos exclusivos da correta, "todas/nenhuma das anteriores", alternativas repetidas). Questões aceitas são salvas no banco.
+- [x] Modelos padrão `gemini-3.5-flash` com fallback para `gemini-flash-lite-latest` (ou o definido em `GEMINI_MODEL`): o modelo anterior (`gemini-2.5-flash`) responde 404 ("no longer available to new users") para a chave configurada, então a geração nunca funcionava e o sistema completava o simulado repetindo questões.
+
+### [x] Segurança revisada
+- [x] Toda consulta de simulado filtra por `id` **e** `userId`; simulado de outra conta responde 404 (sem revelar existência).
+- [x] Finalização atômica (`updateMany ... finishedAt: null`): não é possível finalizar duas vezes nem corrigir simulado alheio.
+- [x] Validação dos corpos das requisições; respostas só para questões do próprio simulado e alternativas válidas.
+- [x] Better Auth com `secret`, `baseURL`, `trustedOrigins`, senha de 8 a 128 caracteres e limite de tentativas de login/cadastro.
+- [x] Cabeçalhos de segurança, `poweredByHeader: false`, `Cache-Control: no-store` nas APIs e log de queries desativado.
+- [x] Usuário do banco com privilégios mínimos (`prisma/sql/least-privilege-role.sql`): somente SELECT/INSERT/UPDATE/DELETE; sem CREATE/DROP/TRUNCATE nem acesso à tabela de migrations.
+
+### Resultados reais da verificação (27/10/2026, Ubuntu, Node 24.19, PostgreSQL local)
+| Verificação | Comando | Resultado |
+|---|---|---|
+| Unitários + integração (banco real) | `npm run test` | 11 arquivos, 56 testes aprovados |
+| Mesma suíte com usuário de privilégios mínimos | `DATABASE_URL=<aws_simulado_app> npm run test` | 11 arquivos, 56 testes aprovados |
+| Navegador (Playwright, build de produção) | `npm run test:e2e` | 3 testes aprovados |
+| Lint | `npm run lint` | sem avisos nem erros |
+| Tipos | `npm run typecheck` | sem erros |
+| Build de produção | `npm run build` | concluído |
+
+Os testes de navegador rodam sem a chave do gerador (somente banco de questões). Geração real verificada manualmente com a chave configurada: pedido de 15 questões só de "Planos de Suporte da AWS" e "AWS Trusted Advisor" (banco tinha 3) completou com 12 novas questões em ~13 s, todas únicas e dos tópicos pedidos; 2 geradas foram descartadas pelo filtro de pistas.
+
+Pendências conhecidas: `npm audit` aponta vulnerabilidades em dependências (não corrigidas para evitar atualizações de versão sem aprovação); `next lint` está obsoleto e será removido no Next.js 16.
 
 ---
 
-### [ ] Etapa 5: Geração de Questões com Google Gemini (Server-side)
-**Objetivo:** Ampliar o banco de questões sob demanda através da inteligência artificial do Gemini, mantendo o nível difícil do exame.
-- **Tarefas Principais:**
-  1. Criação de serviço server-side seguro (`src/lib/gemini.ts`):
-     - Leitura da chave `GEMINI_API_KEY` exclusivamente pelo Node.js.
-     - Prompt engineering calibrado para o padrão AWS CLF-C02: questões situacionais baseadas em cenários reais, 4 alternativas de alta plausibilidade e 1 correta indiscutível.
-  2. Validador de Schema JSON estrito:
-     - Assegura que o retorno da IA contenha enunciado, 4 opções válidas, gabarito e explicação detalhada com citação do serviço AWS.
-  3. Pipeline de Moderação e Inclusão no Banco:
-     - Endpoint administrativo ou de geração em lote para enriquecer o PostgreSQL.
-- **Critério de Aceitação:** Novas questões geradas via Gemini no servidor e salvas no banco local sem expor chaves ou quebrar a estrutura da prova.
-
----
-
-### [ ] Etapa 6: Polimento, Acessibilidade e Testes Finais
-**Objetivo:** Refinamento da usabilidade, robustez de dados e cobertura de testes.
-- **Tarefas Principais:**
-  1. Atalhos de teclado para navegação no simulado (A, B, C, D, N para Não sei, setas para próxima/anterior).
-  2. Modo escuro / alto contraste para longas sessões de estudo.
-  3. Testes unitários e de integração adicionais.
-  4. Revisão da documentação final e guia do estudante.
-- **Critério de Aceitação:** Plataforma estável, acessível e pronta para estudo diário.
+### [ ] Etapa 6: Polimento e Acessibilidade
+- Atalhos de teclado (A, B, C, D, N, setas), modo escuro/alto contraste e guia do estudante.

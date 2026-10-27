@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ExamEvaluationResult, DONT_KNOW_OPTION_ID } from "../types/exam";
+import { ExamResultView } from "../types/exam";
 import {
   CheckCircle2,
   XCircle,
@@ -14,15 +14,17 @@ import {
 } from "lucide-react";
 
 interface ExamSummaryProps {
-  result: ExamEvaluationResult;
+  result: ExamResultView;
   onNewExam: () => void;
-  onStartRecoveryExam: (recoveryTopics: string[]) => void;
+  onStartRecoveryExam: () => void;
+  isRecoveryLoading?: boolean;
 }
 
 export const ExamSummary: React.FC<ExamSummaryProps> = ({
   result,
   onNewExam,
   onStartRecoveryExam,
+  isRecoveryLoading = false,
 }) => {
   const [expandedQuestionId, setExpandedQuestionId] = useState<string | null>(null);
 
@@ -56,6 +58,10 @@ export const ExamSummary: React.FC<ExamSummaryProps> = ({
               )}
             </div>
             <div>
+              <span className="text-xs font-semibold text-slate-500 mr-2">
+                {result.mode === "ESTUDO" ? "Modo Estudo" : "Modo Prova"}
+                {result.isRecovery ? " • Recuperação" : ""}
+              </span>
               <span
                 className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                   result.isPassed
@@ -82,11 +88,13 @@ export const ExamSummary: React.FC<ExamSummaryProps> = ({
             {result.recoveryTopics.length > 0 && (
               <button
                 type="button"
-                onClick={() => onStartRecoveryExam(result.recoveryTopics)}
-                className="flex-1 sm:flex-none py-3 px-5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2"
+                disabled={isRecoveryLoading}
+                data-testid="gerar-recuperacao"
+                onClick={onStartRecoveryExam}
+                className="flex-1 sm:flex-none py-3 px-5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Sparkles className="w-4 h-4" />
-                Simulado de Recuperação ({result.recoveryTopics.length} Tópicos)
+                {isRecoveryLoading ? "Preparando questões..." : "Gerar simulado com os tópicos em que errei"}
               </button>
             )}
             <button
@@ -127,7 +135,7 @@ export const ExamSummary: React.FC<ExamSummaryProps> = ({
         <div className="bg-white p-4 rounded-xl border border-sky-200/80 shadow-xs">
           <div className="flex items-center gap-2 text-sky-700 font-semibold text-xs mb-1">
             <HelpCircle className="w-4 h-4" />
-            "Não Sei" (Dúvidas)
+            Não sei
           </div>
           <div className="text-2xl font-black text-slate-900">{result.dontKnowCount}</div>
           <div className="text-[11px] text-slate-500 mt-0.5">Lacunas de conhecimento</div>
@@ -184,13 +192,54 @@ export const ExamSummary: React.FC<ExamSummaryProps> = ({
         </div>
       </div>
 
-      {/* 4. Gabarito Comentado e Revisão Didática Pós-Prova */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+      {/* 4. Desempenho por Tópico */}
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs" data-testid="desempenho-topicos">
+        <h3 className="text-base font-bold text-slate-900 mb-4">Desempenho por Tópico</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-slate-500 border-b border-slate-200">
+                <th className="py-2 pr-3 font-semibold">Tópico</th>
+                <th className="py-2 px-2 font-semibold text-center">Questões</th>
+                <th className="py-2 px-2 font-semibold text-center">Acertos</th>
+                <th className="py-2 px-2 font-semibold text-center">Erros</th>
+                <th className="py-2 px-2 font-semibold text-center">Não sei</th>
+                <th className="py-2 px-2 font-semibold text-center">Em branco</th>
+                <th className="py-2 pl-2 font-semibold text-right">Aproveitamento</th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.topicBreakdown.map((t) => (
+                <tr key={t.topic} className="border-b border-slate-100">
+                  <td className="py-2 pr-3">
+                    <div className="font-semibold text-slate-800">{t.topic}</div>
+                    <div className="text-[11px] text-slate-400">{t.domain}</div>
+                  </td>
+                  <td className="py-2 px-2 text-center">{t.total}</td>
+                  <td className="py-2 px-2 text-center text-emerald-700 font-semibold">{t.correct}</td>
+                  <td className="py-2 px-2 text-center text-rose-700 font-semibold">{t.incorrect}</td>
+                  <td className="py-2 px-2 text-center text-sky-700 font-semibold">{t.dontKnow}</td>
+                  <td className="py-2 px-2 text-center text-slate-500">{t.unanswered}</td>
+                  <td className="py-2 pl-2 text-right font-bold text-slate-900">{t.percentage}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {result.mode === "PROVA" || !result.detailedAnswers ? (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs text-xs text-slate-500" data-testid="aviso-modo-prova">
+          Modo Prova: o gabarito e as explicações não são exibidos. Para estudar as questões com explicações,
+          faça um simulado no Modo Estudo.
+        </div>
+      ) : (
+      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs" data-testid="revisao-detalhada">
         <h3 className="text-base font-bold text-slate-900 mb-1">
-          Gabarito Comentado & Análise das Questões
+          Revisão Detalhada das Questões
         </h3>
         <p className="text-xs text-slate-500 mb-6">
-          Com o simulado concluído, veja a justificativa técnica detalhada de cada item para fixar o aprendizado.
+          Veja sua resposta, a alternativa correta e a explicação de cada questão.
         </p>
 
         <div className="space-y-3">
@@ -229,6 +278,7 @@ export const ExamSummary: React.FC<ExamSummaryProps> = ({
                 <button
                   type="button"
                   onClick={() => toggleExpand(answer.questionId)}
+                  aria-expanded={isExpanded}
                   className="w-full p-4 text-left flex items-center justify-between gap-4 bg-slate-50/50 hover:bg-slate-50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
@@ -256,6 +306,7 @@ export const ExamSummary: React.FC<ExamSummaryProps> = ({
 
                 {isExpanded && (
                   <div className="p-4 sm:p-5 bg-white border-t border-slate-100 space-y-4">
+                    <p className="text-[11px] text-slate-500">{answer.topic}</p>
                     <p className="text-sm font-semibold text-slate-900 leading-relaxed">
                       {answer.stem}
                     </p>
@@ -296,7 +347,7 @@ export const ExamSummary: React.FC<ExamSummaryProps> = ({
                     </div>
 
                     <div className="p-3.5 rounded-lg bg-amber-50/60 border border-amber-200/70 text-xs text-amber-950">
-                      <strong className="block font-bold mb-1">Explicação Técnica:</strong>
+                      <strong className="block font-bold mb-1">Explicação:</strong>
                       {answer.explanation}
                     </div>
                   </div>
@@ -306,6 +357,7 @@ export const ExamSummary: React.FC<ExamSummaryProps> = ({
           })}
         </div>
       </div>
+      )}
     </div>
   );
 };

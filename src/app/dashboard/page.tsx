@@ -4,13 +4,9 @@ import { getServerSession } from "@/lib/server-auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
 import {
-  User,
   GraduationCap,
   Trophy,
   History,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
   ArrowRight,
   Sparkles,
   Calendar,
@@ -41,21 +37,19 @@ export default async function DashboardPage() {
     });
   }
 
-  // 3. Busca o histórico de simulados do usuário autenticado no PostgreSQL
+  // 3. Busca o histórico de simulados do usuário autenticado 
   const attempts = await prisma.examAttempt.findMany({
     where: { userId: session.user.id },
     orderBy: { startedAt: "desc" },
-    include: {
-      answers: true,
-    },
   });
 
-  const totalExams = attempts.length;
-  const passedExams = attempts.filter((a) => a.isPassed).length;
+  const finishedAttempts = attempts.filter((a) => a.finishedAt);
+  const totalExams = finishedAttempts.length;
+  const passedExams = finishedAttempts.filter((a) => a.isPassed).length;
   const averageScore =
     totalExams > 0
       ? Math.round(
-          attempts.reduce((acc, a) => acc + (a.percentageScore ?? 0), 0) / totalExams
+          finishedAttempts.reduce((acc, a) => acc + (a.percentageScore ?? 0), 0) / totalExams
         )
       : 0;
 
@@ -86,7 +80,7 @@ export default async function DashboardPage() {
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Link
-              href="/"
+              href="/simulado"
               className="py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-sm flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
@@ -104,7 +98,7 @@ export default async function DashboardPage() {
               <History className="w-4 h-4 text-amber-500" />
             </div>
             <div className="text-3xl font-black text-slate-900">{totalExams}</div>
-            <div className="text-xs text-slate-500 mt-1">Registrados no PostgreSQL local</div>
+            <div className="text-xs text-slate-500 mt-1">Simulados realizados</div>
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
@@ -137,7 +131,6 @@ export default async function DashboardPage() {
               <History className="w-4 h-4 text-amber-500" />
               Histórico Pessoal de Simulados
             </h2>
-            <span className="text-xs text-slate-400">Isolamento por Usuário Ativo</span>
           </div>
 
           {attempts.length === 0 ? (
@@ -149,7 +142,7 @@ export default async function DashboardPage() {
                 Inicie um simulado para testar seus conhecimentos e acompanhar sua evolução.
               </p>
               <Link
-                href="/"
+                href="/simulado"
                 className="inline-flex items-center gap-2 py-2 px-4 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs"
               >
                 Começar Primeiro Simulado
@@ -168,20 +161,29 @@ export default async function DashboardPage() {
                       <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800">
                         {attempt.questionCount} Questões
                       </span>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded bg-sky-100 text-sky-800">
+                        {attempt.mode === "ESTUDO" ? "Modo Estudo" : "Modo Prova"}
+                      </span>
                       {attempt.isRecovery && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
                           Recuperação
                         </span>
                       )}
-                      <span
-                        className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                          attempt.isPassed
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-rose-100 text-rose-800"
-                        }`}
-                      >
-                        {attempt.isPassed ? "Aprovado" : "Não Atingiu Nota"}
-                      </span>
+                      {attempt.finishedAt ? (
+                        <span
+                          className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                            attempt.isPassed
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-rose-100 text-rose-800"
+                          }`}
+                        >
+                          {attempt.isPassed ? "Aprovado" : "Não Atingiu Nota"}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                          Em andamento
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs text-slate-500 flex items-center gap-2">
                       <Calendar className="w-3.5 h-3.5" />
@@ -190,14 +192,22 @@ export default async function DashboardPage() {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="text-lg font-black text-slate-900">
-                        {attempt.percentageScore ?? 0}%
+                    {attempt.finishedAt && (
+                      <div className="text-right">
+                        <div className="text-lg font-black text-slate-900">
+                          {attempt.percentageScore ?? 0}%
+                        </div>
+                        <div className="text-[11px] text-slate-500">
+                          {attempt.estimatedScaledScore ?? 100} / 1000 pts
+                        </div>
                       </div>
-                      <div className="text-[11px] text-slate-500">
-                        {attempt.estimatedScaledScore ?? 100} / 1000 pts
-                      </div>
-                    </div>
+                    )}
+                    <Link
+                      href={`/simulado?${attempt.finishedAt ? "resultado" : "continuar"}=${attempt.id}`}
+                      className="py-2 px-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold text-xs"
+                    >
+                      {attempt.finishedAt ? "Ver resultado" : "Continuar"}
+                    </Link>
                   </div>
                 </div>
               ))}

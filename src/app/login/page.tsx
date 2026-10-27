@@ -20,7 +20,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await authClient.signIn.email({
+      const { error } = await authClient.signIn.email({
         email,
         password,
       });
@@ -31,10 +31,10 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard");
+      router.push("/simulado");
       router.refresh();
-    } catch (err: any) {
-      setErrorMessage(err?.message || "Ocorreu um erro ao tentar entrar.");
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Ocorreu um erro ao tentar entrar.");
       setIsLoading(false);
     }
   };

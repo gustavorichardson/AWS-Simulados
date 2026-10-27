@@ -1,114 +1,76 @@
 import { describe, it, expect } from "vitest";
-import { generateExamQuestionsLocally, findOriginalQuestion } from "../src/lib/question-generator";
 import { sanitizeQuestions, evaluateExam } from "../src/lib/examEngine";
 import { DONT_KNOW_OPTION_ID, DONT_KNOW_OPTION_TEXT, UserSubmission } from "../src/types/exam";
 import { MOCK_QUESTIONS } from "../src/data/mockQuestions";
+import { getAllSubtopics } from "../src/types/subtopics";
+import { computeStemHash } from "../src/lib/gemini";
+import { detectAnswerLeak } from "../src/lib/question-quality";
 
-describe("Execução de Simulados com Gerador Local Fictício", () => {
-  it("deve conter um dataset fictício curado com pelo menos 65 questões cobrindo todos os 4 domínios", () => {
+describe("Banco inicial de questões", () => {
+  it("contém pelo menos 65 questões válidas com 4 alternativas e gabarito", () => {
     expect(MOCK_QUESTIONS.length).toBeGreaterThanOrEqual(65);
-
-    // Valida que cada questão no mock tem exatamente 4 opções e 1 gabarito válido
     MOCK_QUESTIONS.forEach((q) => {
       expect(q.options).toHaveLength(4);
-      expect(q.correctOptionId).toMatch(/^opt_[abcd]$/);
       expect(q.options.some((opt) => opt.id === q.correctOptionId)).toBe(true);
-      expect(q.stem.length).toBeGreaterThan(15);
       expect(q.explanation.length).toBeGreaterThan(15);
     });
   });
 
-  it("deve gerar simulados locais de 15, 30, 45 e 65 questões sem chamadas externas", () => {
-    const counts = [15, 30, 45, 65] as const;
-
-    counts.forEach((count) => {
-      const questions = generateExamQuestionsLocally({
-        count,
-        selectedTopics: ["TODOS"],
-      });
-
-      expect(questions).toHaveLength(count);
-
-      // Cada questão interna tem exatamente 4 opções de conteúdo
-      questions.forEach((q) => {
-        expect(q.options).toHaveLength(4);
-        expect(q.correctOptionId).toBeDefined();
-      });
-    });
+  it("não possui enunciados duplicados", () => {
+    const hashes = new Set(MOCK_QUESTIONS.map((q) => computeStemHash(q.stem)));
+    expect(hashes.size).toBe(MOCK_QUESTIONS.length);
   });
 
-  it("deve garantir que o gabarito e as explicações NUNCA sejam enviados ao frontend durante a prova", () => {
-    const internalQuestions = generateExamQuestionsLocally({
-      count: 15,
-      selectedTopics: ["TODOS"],
-    });
+  it("usa somente subtópicos oficiais da hierarquia (necessário para a recuperação por tópico)", () => {
+    const valid = new Set(getAllSubtopics());
+    MOCK_QUESTIONS.forEach((q) => expect(valid.has(q.topic)).toBe(true));
+  });
 
-    const publicQuestions = sanitizeQuestions(internalQuestions);
+  it("nenhuma questão entrega a resposta por tamanho, repetição de termos ou texto proibido", () => {
+    const leaks = MOCK_QUESTIONS.map((q) => ({ id: q.id, leak: detectAnswerLeak(q) })).filter(
+      (r) => r.leak
+    );
+    expect(leaks).toEqual([]);
+  });
+});
 
-    expect(publicQuestions).toHaveLength(15);
-
+describe("Payload público e avaliação", () => {
+  it("o payload público não contém gabarito, explicação nem tópico", () => {
+    const publicQuestions = sanitizeQuestions(MOCK_QUESTIONS.slice(0, 15));
+    const json = JSON.stringify(publicQuestions);
+    expect(json).not.toContain("correctOptionId");
+    expect(json).not.toContain("explanation");
+    expect(json).not.toContain('"topic"');
     publicQuestions.forEach((q) => {
-      // 1. Não deve expor o gabarito
-      expect((q as any).correctOptionId).toBeUndefined();
-
-      // 2. Não deve expor a explicação
-      expect((q as any).explanation).toBeUndefined();
-
-      // 3. Deve possuir exatamente 5 opções (as 4 originais + a opção "Não sei")
       expect(q.options).toHaveLength(5);
-
-      // 4. A 5ª opção deve ser exatamente "Não sei"
-      const lastOption = q.options[4];
-      expect(lastOption.id).toBe(DONT_KNOW_OPTION_ID);
-      expect(lastOption.text).toBe(DONT_KNOW_OPTION_TEXT);
-      expect(lastOption.isDontKnow).toBe(true);
+      expect(q.options[4]).toEqual({ id: DONT_KNOW_OPTION_ID, text: DONT_KNOW_OPTION_TEXT, isDontKnow: true });
+      expect(Object.keys(q).sort()).toEqual(["domain", "id", "options", "stem"]);
     });
   });
 
-  it("deve recuperar a questão original do servidor e calcular a pontuação somente na finalização", () => {
-    const internalQuestions = generateExamQuestionsLocally({
-      count: 15,
-      selectedTopics: ["TODOS"],
-    });
-
-    // Submete 10 respostas corretas, 3 incorretas e 2 "Não sei"
-    const submissions: UserSubmission[] = internalQuestions.map((q, idx) => {
-      if (idx < 10) {
-        return { questionId: q.id, selectedOptionId: q.correctOptionId };
-      } else if (idx < 13) {
-        const wrongOption = q.options.find((opt) => opt.id !== q.correctOptionId)!;
-        return { questionId: q.id, selectedOptionId: wrongOption.id };
-      } else {
-        return { questionId: q.id, selectedOptionId: DONT_KNOW_OPTION_ID };
-      }
-    });
-
-    const result = evaluateExam(submissions, internalQuestions);
-
-    expect(result.totalQuestions).toBe(15);
-    expect(result.correctCount).toBe(10);
-    expect(result.incorrectCount).toBe(3);
-    expect(result.dontKnowCount).toBe(2);
-    expect(result.unansweredCount).toBe(0);
-
-    // Na finalização, o gabarito comentado e a explicação DEVEM ser liberados
-    expect(result.detailedAnswers).toHaveLength(15);
-    result.detailedAnswers.forEach((ans) => {
-      expect(ans.correctOptionId).toBeDefined();
-      expect(ans.explanation.length).toBeGreaterThan(10);
-    });
-  });
-
-  it("deve resolver instâncias de questões com findOriginalQuestion", () => {
-    const questions = generateExamQuestionsLocally({
-      count: 15,
-      selectedTopics: ["TODOS"],
-    });
-
-    const firstInstance = questions[0];
-    const original = findOriginalQuestion(firstInstance.id);
-
-    expect(original).toBeDefined();
-    expect(original?.stem).toBe(firstInstance.stem);
+  it("gera desempenho por tópico com os quatro estados e percentual", () => {
+    const questions = MOCK_QUESTIONS.slice(0, 4);
+    const submissions: UserSubmission[] = [
+      { questionId: questions[0].id, selectedOptionId: questions[0].correctOptionId },
+      { questionId: questions[1].id, selectedOptionId: questions[1].options.find((o) => o.id !== questions[1].correctOptionId)!.id },
+      { questionId: questions[2].id, selectedOptionId: DONT_KNOW_OPTION_ID },
+      { questionId: questions[3].id, selectedOptionId: null },
+    ];
+    const result = evaluateExam(submissions, questions);
+    const totals = result.topicBreakdown.reduce(
+      (acc, t) => ({
+        total: acc.total + t.total,
+        correct: acc.correct + t.correct,
+        incorrect: acc.incorrect + t.incorrect,
+        dontKnow: acc.dontKnow + t.dontKnow,
+        unanswered: acc.unanswered + t.unanswered,
+      }),
+      { total: 0, correct: 0, incorrect: 0, dontKnow: 0, unanswered: 0 }
+    );
+    expect(totals).toEqual({ total: 4, correct: 1, incorrect: 1, dontKnow: 1, unanswered: 1 });
+    result.topicBreakdown.forEach((t) =>
+      expect(t.percentage).toBe(Math.round((t.correct / t.total) * 100))
+    );
+    expect(result.recoveryTopics.sort()).toEqual([questions[1].topic, questions[2].topic].filter((v, i, a) => a.indexOf(v) === i).sort());
   });
 });
