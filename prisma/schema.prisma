@@ -1,0 +1,130 @@
+// Configuração do Prisma ORM para a plataforma AWS Simulados (CLF-C02)
+// Banco de dados: PostgreSQL instalado localmente no Windows
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// Modelos de Autenticação (compatíveis com Better Auth)
+// ============================================================================
+
+model User {
+  id            String         @id @default(cuid())
+  name          String
+  email         String         @unique
+  emailVerified Boolean        @default(false)
+  image         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  attempts      ExamAttempt[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verifications")
+}
+
+// ============================================================================
+// Modelos do Simulado AWS CLF-C02
+// ============================================================================
+
+model Question {
+  id               String       @id @default(cuid())
+  domain           String       // Um dos 4 domínios oficiais CLF-C02
+  topic            String       // Assunto específico (ex: "IAM Roles", "S3 Storage Classes")
+  stem             String       @db.Text // Enunciado
+  optionA          String       @db.Text
+  optionB          String       @db.Text
+  optionC          String       @db.Text
+  optionD          String       @db.Text
+  correctOptionId  String       // "opt_a" | "opt_b" | "opt_c" | "opt_d"
+  explanation      String       @db.Text // Justificativa técnica liberada pós-prova
+  documentationUrl String?
+  difficulty       String       @default("HARD") // "EASY" | "MEDIUM" | "HARD"
+  isActive         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  answers          ExamAnswer[]
+
+  @@map("questions")
+}
+
+model ExamAttempt {
+  id                   String       @id @default(cuid())
+  userId               String
+  questionCount        Int          // 15, 30, 45 ou 65
+  selectedDomains      String[]     // Lista de domínios escolhidos
+  isRecovery           Boolean      @default(false)
+  percentageScore      Int?         // 0 a 100%
+  estimatedScaledScore Int?         // 100 a 1000
+  isPassed             Boolean?
+  startedAt            DateTime     @default(now())
+  finishedAt           DateTime?
+  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answers              ExamAnswer[]
+
+  @@map("exam_attempts")
+}
+
+model ExamAnswer {
+  id               String      @id @default(cuid())
+  attemptId        String
+  questionId       String
+  selectedOptionId String?     // "opt_a" | "opt_b" | "opt_c" | "opt_d" | "opt_dont_know" | null
+  status           String      // "CORRETA" | "ERRADA" | "NAO_SEI" | "NAO_RESPONDIDA"
+  answeredAt       DateTime    @default(now())
+  attempt          ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question         Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@map("exam_answers")
+}
