@@ -10,9 +10,13 @@ Projeto desenvolvido com **Next.js 15 (App Router)**, **TypeScript**, **Tailwind
 
 - **Pedagogia com a Opção "Não sei":** Todas as questões trazem 4 alternativas reais (A, B, C, D) e uma 5ª opção obrigatória: `"Não sei"`. Evita o chute cego e diagnostica o que você realmente precisa estudar.
 - **Tamanhos Oficiais e de Estudo:** Simulados com **15, 30, 45 ou 65 questões** (65 é o tamanho oficial da prova AWS).
+- **Dificuldade Fixa (Difícil):** Questões desafiadoras baseadas em cenários situacionais do exame CLF-C02.
+- **Seleção Inteligente de Tópicos:** Opção "Todos os tópicos" opera com exclusividade estrita em relação à seleção granular de domínios.
+- **Navegação Completa e Revisão:** Drawer de grade rápida para saltar para qualquer questão (1 a N), contador de progresso e botão "Marcar para revisão" com bandeira visual.
+- **Persistência de Progresso:** Progresso da prova salvo no `localStorage` em tempo real e sincronizado com o PostgreSQL local; se a página for recarregada, você continua de onde parou.
 - **Proteção do Gabarito:** O navegador nunca recebe as respostas corretas durante o exame. Toda validação ocorre no backend.
 - **Simulado de Recuperação:** Capacidade de gerar novos simulados direcionados especificamente aos tópicos onde você errou ou teve dúvidas.
-- **100% Local e Gratuito:** Roda integralmente no seu ambiente Windows, sem dependência de Docker, serviços pagos ou nuvens externas nesta fase.
+- **100% Local e Gratuito:** Roda integralmente no seu ambiente Windows, sem dependência de Docker, serviços pagos ou nuvens externas nesta fase. Não utiliza IA nesta etapa.
 
 ---
 

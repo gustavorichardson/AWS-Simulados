@@ -56,22 +56,29 @@ flowchart LR
 
 ---
 
-### [ ] Etapa 3: Motor de Geração e Ineditismo de Questões
-**Objetivo:** Permitir ao usuário autenticado gerar simulados oficiais e personalizados sem repetição precoce.
-- **Tarefas Principais:**
-  1. Carga inicial de questões canônicas do exame CLF-C02 no banco (`prisma/seed.ts`).
-  2. Implementação do algoritmo de seleção de questões:
-     - Filtrar questões por domínios selecionados.
-     - Excluir IDs de questões já respondidas pelo usuário em tentativas anteriores (regra de ineditismo).
-     - Caso o banco de inéditas não atinja o total solicitado (ex: 65), aplicar estratégia de fallback avisando o estudante.
-  3. API de criação de tentativa (`POST /api/simulados/iniciar`):
-     - Registra o início da tentativa no banco.
-     - Retorna para o frontend as questões **sanitizadas** (sem gabarito e sem justificativas).
-  4. Interface do Simulado em Andamento:
-     - Navegação entre questões (1 a N).
-     - Marcador de revisão.
-     - Cronômetro opcional do exame.
-- **Critério de Aceitação:** Simulado montado dinamicamente com 15, 30, 45 ou 65 perguntas, embaralhamento e proteção absoluta do gabarito.
+### [x] Etapa 3: Execução do Simulado com Gerador Local Fictício e Proteção do Gabarito (Concluída)
+**Objetivo:** Permitir ao estudante configurar e realizar simulados realistas com gerador local fictício, garantindo proteção de gabarito e persistência do progresso.
+- **Tarefas Concluídas:**
+  1. Tela de Configuração:
+     - Dificuldade fixa: "Difícil".
+     - Certificação fixa: "AWS Certified Cloud Practitioner (CLF-C02)".
+     - Quantidade estrita de perguntas: 15, 30, 45 ou 65 questões.
+     - Seleção múltipla de tópicos com a opção "Todos os tópicos" operando de forma estritamente exclusiva.
+  2. Gerador Local de Dados Fictícios:
+     - Banco curado local com 66 questões realistas cobrindo os 4 domínios da prova AWS CLF-C02, sem chamadas a APIs ou dependência de IA.
+  3. Proteção do Gabarito no Servidor:
+     - Endpoint `POST /api/simulados/iniciar`: Registra a tentativa no PostgreSQL local e envia apenas questões sanitizadas para o cliente. O gabarito (`correctOptionId`) e as explicações permanecem restritos ao servidor durante a prova.
+     - Endpoint `POST /api/simulados/[id]/finalizar`: Recebe as respostas, processa a correção no servidor, persiste no PostgreSQL e libera o relatório com as explicações comentadas.
+  4. Tela da Prova e Persistência:
+     - Navegação direta entre questões (Anterior, Próxima e Drawer com grade interativa de 1 a N).
+     - Marcador para revisão ("Marcar para revisão") com identificação visual por cores.
+     - 4 alternativas autênticas + 5ª opção fixa `"Não sei"`.
+     - Persistência contínua do progresso no `localStorage` e integridade caso a página seja recarregada.
+     - Modal de confirmação antes da submissão com resumo de questões em branco e marcadas para revisão.
+  5. Testes Automatizados com Vitest:
+     - `tests/topicSelection.test.ts`: Exclusividade de "Todos os tópicos".
+     - `tests/examExecution.test.ts`: Integridade das questões, bloqueio de gabarito e avaliação oficial.
+- **Critério de Aceitação:** 100% cumprido — simulado funcional em localhost, sem chamadas a serviços externos, proteção de gabarito e testes validados.
 
 ---
 
