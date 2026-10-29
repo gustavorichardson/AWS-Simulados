@@ -94,6 +94,12 @@ export interface GenerateQuestionsOptions {
   existingHashes?: Set<string>;
   /** Enunciados já existentes para detecção de duplicatas aproximadas. */
   existingStems?: string[];
+  feedbackSignals?: Array<{
+    category: "ERRADA" | "REPETIDA" | "DIFICULDADE_INCORRETA";
+    difficulty: QuestionDifficulty;
+    direction?: "MAIS_FACIL" | "MAIS_DIFICIL";
+    topic: string;
+  }>;
   maxRetries?: number;
 }
 
@@ -116,11 +122,11 @@ export function buildQuestionPrompt(options: GenerateQuestionsOptions): string {
   const domainTarget = options.domain || "qualquer um dos 4 domínios oficiais";
   const difficultyInstructions: Record<QuestionDifficulty, string> = {
     EASY:
-      "FÁCIL: cobre conceitos fundamentais do nível Cloud Practitioner, com enunciado direto e alternativas que tragam contexto curto e familiar para facilitar a identificação.",
+      "FÁCIL: enunciado curto, intuitivo e com palavras-chave claras; alternativas plausíveis e relacionadas, podendo incluir contexto explicativo curto.",
     MEDIUM:
-      "MÉDIO: permanece no nível Cloud Practitioner, exige interpretar um cenário breve e usa alternativas com contexto moderado, sem conhecimentos de certificações avançadas.",
+      "MÉDIO: enunciado elaborado, com cenário e possíveis palavras-chave intuitivas; alternativas objetivas e concisas, sem explicações nem contexto adicional.",
     HARD:
-      "DIFÍCIL (limite máximo Cloud Practitioner): exige distinguir conceitos do escopo CLF-C02, sem entrar em conteúdo de nível Associate, Professional ou Specialty. As alternativas devem conter somente o nome cru do serviço, conceito ou resposta (ex.: 'Amazon S3', 'Amazon EBS', 'Amazon RDS'), sem contexto, descrição, benefício, justificativa, frase ou explicação junto ao nome.",
+      "DIFÍCIL: enunciado longo e elaborado, com raciocínio não intuitivo e sem palavras-chave que entreguem o conceito correto. Alternativas diretas e curtas, sem explicações ou contexto. Mantenha-se no escopo CLF-C02.",
   };
   const subtopicsTarget =
     options.subtopics && options.subtopics.length > 0
@@ -133,6 +139,19 @@ export function buildQuestionPrompt(options: GenerateQuestionsOptions): string {
     .slice(-40)
     .map((s) => `- ${s.slice(0, 140)}`)
     .join("\n");
+  const feedback = options.feedbackSignals?.length
+    ? options.feedbackSignals
+        .map((signal) => {
+          const issue =
+            signal.category === "ERRADA"
+              ? "erro conceitual apontado: valide fatos, requisitos e unicidade da resposta correta"
+              : signal.category === "REPETIDA"
+                ? "questão apontada como repetida: crie um cenário e raciocínio materialmente diferentes"
+                : `dificuldade apontada como incorreta (${signal.direction === "MAIS_FACIL" ? "estava fácil demais" : "estava difícil demais"}): ajuste o nível`;
+          return `- ${signal.topic} / ${signal.difficulty}: ${issue}`;
+        })
+        .join("\n")
+    : "- Nenhum feedback anterior disponível para estes tópicos.";
 
   return `Você é autor de questões para a prova AWS Certified Cloud Practitioner (CLF-C02), uma certificação introdutória.
 REGRA DE ESCOPO INEGOCIÁVEL: tanto o conteúdo quanto a dificuldade devem permanecer dentro do nível Cloud Practitioner e do blueprint oficial CLF-C02. NUNCA ultrapasse esse nível: não cobre arquitetura avançada, implementação profunda, comandos, configuração detalhada ou conteúdo de Associate, Professional ou Specialty.
@@ -140,6 +159,8 @@ Gere exatamente ${options.count} questões inéditas no nível ${options.difficu
 
 NÍVEL PEDAGÓGICO SELECIONADO:
 ${difficultyInstructions[options.difficulty]}
+
+AS ALTERNATIVAS INCORRETAS DEVEM SER DISTRATORES PLAUSÍVEIS: use serviços ou conceitos próximos do cenário e do mesmo domínio; nunca inclua opções absurdas ou obviamente descartáveis. Garanta exatamente uma resposta correta.
 
 REQUISITOS OBRIGATÓRIOS:
 1. Idioma: português brasileiro.
@@ -159,6 +180,9 @@ REGRAS CONTRA PISTAS (a resposta NÃO pode ser deduzível sem conhecimento):
 - Não use "todas as anteriores", "nenhuma das anteriores", nem termos como "correta" ou "gabarito" nas alternativas.
 - Varie a posição da alternativa correta entre opt_a, opt_b, opt_c e opt_d.
 - Cada questão deve abordar um cenário diferente das demais do lote.
+
+SINAIS DE QUALIDADE REGISTRADOS POR ESTUDANTES (considere estas medidas nesta geração; isto não altera nem treina automaticamente o modelo):
+${feedback}
 
 NÃO REPITA nem reformule os cenários destas questões já existentes:
 ${avoid || "- (nenhuma)"}

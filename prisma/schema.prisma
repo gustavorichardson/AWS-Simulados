@@ -25,6 +25,7 @@ model User {
   accounts      Account[]
   profile       Profile?
   attempts      ExamAttempt[]
+  questionFeedback QuestionFeedback[]
 
   @@map("users")
 }
@@ -113,6 +114,8 @@ model Question {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   answers            ExamAnswer[]
+  feedback           QuestionFeedback[]
+  feedbackUsages     FeedbackGenerationUsage[] @relation("FeedbackGeneratedQuestion")
 
   @@index([domain, topic])
   @@map("questions")
@@ -139,6 +142,7 @@ model ExamAttempt {
   finishedAt           DateTime?
   user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   answers              ExamAnswer[]
+  feedback         QuestionFeedback[]
 
   @@index([userId])
   @@map("exam_attempts")
@@ -152,10 +156,57 @@ model ExamAnswer {
   status           String      @default("NAO_RESPONDIDA") // "CORRETA" | "ERRADA" | "NAO_SEI" | "NAO_RESPONDIDA"
   position         Int         @default(0) // Ordem da questão no simulado
   optionOrder      String[]    @default([]) // Ordem embaralhada das alternativas exibidas
+  unknownOptionIds String[]    @default([])
   answeredAt       DateTime    @default(now())
   attempt          ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question         Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@unique([attemptId, questionId])
   @@map("exam_answers")
+}
+
+model QuestionFeedback {
+  id                  String   @id @default(cuid())
+  userId              String
+  attemptId           String
+  questionId          String
+  category            String
+  difficultyDirection String?
+  difficulty          String
+  domain              String
+  topic               String
+  createdAt           DateTime @default(now())
+  usedAt              DateTime?
+  resolvedAt          DateTime?
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempt             ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question            Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  usages              FeedbackGenerationUsage[]
+
+  @@unique([attemptId, questionId, category])
+  @@index([domain, topic, category, createdAt])
+  @@index([usedAt])
+  @@map("question_feedback")
+}
+
+model FeedbackGenerationUsage {
+  id                  String   @id @default(cuid())
+  feedbackId          String
+  generatedQuestionId String
+  usedAt              DateTime @default(now())
+  feedback            QuestionFeedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  generatedQuestion   Question @relation("FeedbackGeneratedQuestion", fields: [generatedQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([feedbackId, generatedQuestionId])
+  @@index([generatedQuestionId, usedAt])
+  @@map("feedback_generation_usages")
+}
+
+model FeedbackMetricSnapshot {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  metrics   Json
+  createdAt DateTime @default(now())
+
+  @@map("feedback_metric_snapshots")
 }

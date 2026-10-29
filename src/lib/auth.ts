@@ -1,8 +1,10 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma";
+import { sessionPolicy } from "./session-policy";
 
 const baseURL = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+const sessionExpiresIn = Math.floor(sessionPolicy.maximumLifetimeMs / 1000);
 
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
@@ -27,11 +29,10 @@ export const auth = betterAuth({
     },
   },
   session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 dias de validade
-    updateAge: 60 * 60 * 24, // atualiza se tiver mais de 1 dia
+    expiresIn: sessionExpiresIn,
+    updateAge: 60,
     cookieCache: {
-      enabled: true,
-      maxAge: 5 * 60, // 5 minutos de cache em cookie
+      enabled: false,
     },
   },
 });

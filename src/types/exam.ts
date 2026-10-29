@@ -78,6 +78,16 @@ export interface QuestionInternal {
 }
 
 export type AnswerStatus = "CORRETA" | "ERRADA" | "NAO_SEI" | "NAO_RESPONDIDA";
+export type StudyFeedbackCategory = "ERRADA" | "REPETIDA" | "DIFICULDADE_INCORRETA";
+export type DifficultyDirection = "MAIS_FACIL" | "MAIS_DIFICIL";
+
+export interface UnknownOptionSelection {
+  questionId: string;
+  topic: string;
+  domain: ExamDomain;
+  optionId: string;
+  optionText: string;
+}
 
 export interface UserSubmission {
   questionId: string;
@@ -128,6 +138,7 @@ export interface ExamResultView extends Omit<ExamEvaluationResult, "detailedAnsw
   isRecovery: boolean;
   finishedAt: string | null;
   detailedAnswers?: EvaluatedAnswer[];
+  unknownOptions?: UnknownOptionSelection[];
 }
 
 export interface ExamConfig {

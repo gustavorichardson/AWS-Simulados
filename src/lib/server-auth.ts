@@ -1,14 +1,28 @@
 import { headers } from "next/headers";
 import { auth } from "./auth";
+import { prisma } from "./prisma";
+import { isSessionExpired, sessionPolicy } from "./session-policy";
 
 /**
  * Obtém a sessão do usuário autenticado no servidor a partir dos headers da requisição.
  */
 export async function getServerSession() {
   const reqHeaders = await headers();
-  return await auth.api.getSession({
+  const session = await auth.api.getSession({
     headers: reqHeaders,
   });
+  if (!session?.session?.id) return null;
+
+  const persisted = await prisma.session.findUnique({
+    where: { id: session.session.id },
+    select: { id: true, createdAt: true, updatedAt: true, expiresAt: true },
+  });
+  if (!persisted) return null;
+  if (isSessionExpired(persisted, new Date(), sessionPolicy)) {
+    await prisma.session.deleteMany({ where: { id: persisted.id } });
+    return null;
+  }
+  return session;
 }
 
 /**

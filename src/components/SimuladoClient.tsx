@@ -37,7 +37,7 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   if (res.status === 401) {
-    window.location.href = "/login";
+    window.location.href = "/login?motivo=sessao-expirada";
     throw new Error("Sessão expirada. Faça login novamente.");
   }
   const data = await res.json().catch(() => ({}));
