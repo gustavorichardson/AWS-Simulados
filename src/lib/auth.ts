@@ -19,6 +19,15 @@ export const auth = betterAuth({
     minPasswordLength: 8,
     maxPasswordLength: 128,
   },
+  advanced: {
+    useSecureCookies: baseURL.startsWith("https://"),
+    defaultCookieAttributes: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: baseURL.startsWith("https://"),
+      path: "/",
+    },
+  },
   rateLimit: {
     enabled: true,
     window: 60,
