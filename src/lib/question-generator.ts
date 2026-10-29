@@ -21,6 +21,7 @@ import {
   isAiGenerationConfigured,
 } from "./gemini";
 import { isNearDuplicate } from "./question-quality";
+import { triagePendingFeedback } from "./feedback-triage";
 
 export class InsufficientQuestionsError extends Error {
   constructor(public readonly available: number, public readonly requested: number) {
@@ -186,10 +187,13 @@ async function generateMissingQuestions(
   relatedStems: string[],
   feedbackSignals: Array<{
     id: string;
-    category: "ERRADA" | "REPETIDA" | "DIFICULDADE_INCORRETA";
+    category: "ERRADA" | "REPETIDA" | "DIFICULDADE_INCORRETA" | "RESPOSTA_VICIADA";
     difficulty: QuestionDifficulty;
     direction?: "MAIS_FACIL" | "MAIS_DIFICIL";
     topic: string;
+    issueLocation: string | null;
+    reportedAnswer: string | null;
+    detail: string | null;
   }> = [],
   relatedSubtopics: string[] = []
 ): Promise<QuestionInternal[]> {
@@ -290,7 +294,7 @@ async function generateMissingQuestions(
       },
       data: {
         generatedQuestionIds: persisted.map((question) => question.id),
-        implementedAt: now,
+        generatedAt: now,
       },
     });
   }
@@ -440,17 +444,22 @@ async function loadRelevantFeedback(
 ): Promise<
   Array<{
     id: string;
-    category: "ERRADA" | "REPETIDA" | "DIFICULDADE_INCORRETA";
+    category: "ERRADA" | "REPETIDA" | "DIFICULDADE_INCORRETA" | "RESPOSTA_VICIADA";
     difficulty: QuestionDifficulty;
     direction?: "MAIS_FACIL" | "MAIS_DIFICIL";
     topic: string;
+    issueLocation: string | null;
+    reportedAnswer: string | null;
+    detail: string | null;
   }>
 > {
   if (topics.length === 0) return [];
+  await triagePendingFeedback(domains, topics);
   const feedback = await prisma.questionFeedback.findMany({
     where: {
       domain: { in: domains },
       topic: { in: topics },
+      triageStatus: "APPROVED",
       createdAt: { gte: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000) },
     },
     orderBy: { createdAt: "desc" },
@@ -461,13 +470,17 @@ async function loadRelevantFeedback(
       difficulty: true,
       difficultyDirection: true,
       topic: true,
+      issueLocation: true,
+      reportedAnswer: true,
+      detail: true,
     },
   });
   return feedback.flatMap((row) => {
     if (
       row.category !== "ERRADA" &&
       row.category !== "REPETIDA" &&
-      row.category !== "DIFICULDADE_INCORRETA"
+      row.category !== "DIFICULDADE_INCORRETA" &&
+      row.category !== "RESPOSTA_VICIADA"
     ) {
       return [];
     }
@@ -483,6 +496,9 @@ async function loadRelevantFeedback(
           ? { direction: row.difficultyDirection }
           : {}),
         topic: row.topic,
+        issueLocation: row.issueLocation,
+        reportedAnswer: row.reportedAnswer,
+        detail: row.detail,
       },
     ];
   });

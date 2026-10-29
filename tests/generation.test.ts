@@ -95,6 +95,7 @@ describe("Geração de questões quando o banco não tem inéditas suficientes",
         attemptId: sourceAttempt.id,
         questionId: feedbackQuestion.id,
         category: "REPETIDA",
+        triageStatus: "APPROVED",
         difficulty: "EASY",
         domain: "Domínio 2: Segurança e Conformidade",
         topic: TOPIC,
@@ -129,7 +130,7 @@ describe("Geração de questões quando o banco não tem inéditas suficientes",
     expect(Math.max(...answerPositionCounts) - Math.min(...answerPositionCounts)).toBeLessThanOrEqual(1);
     const promptUses = await prisma.feedbackPromptUse.findMany({ where: { feedbackId: feedback.id } });
     expect(promptUses.length).toBeGreaterThan(0);
-    expect(promptUses.every((use) => use.implementedAt !== null)).toBe(true);
+    expect(promptUses.every((use) => use.generatedAt !== null)).toBe(true);
     expect(promptUses.every((use) => use.generatedQuestionIds.length > 0)).toBe(true);
   });
 });

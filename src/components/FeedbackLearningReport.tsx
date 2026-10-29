@@ -6,7 +6,13 @@ import { Activity, CheckCircle2, Clock3, Database, Sparkles } from "lucide-react
 type CategoryMetric = {
   category: string;
   received: number;
+  unique: number;
+  duplicates: number;
+  approved: number;
+  rejected: number;
+  pendingTriage: number;
   appliedInGeneration: number;
+  generationOutputsCreated: number;
   pending: number;
   correctionsImplemented: number;
   resolvedWithEvidence: number;
@@ -17,7 +23,13 @@ type CategoryMetric = {
 interface FeedbackReport {
   totals: {
     received: number;
+    unique: number;
+    duplicates: number;
+    approved: number;
+    rejected: number;
+    pendingTriage: number;
     appliedInGeneration: number;
+    generationOutputsCreated: number;
     pending: number;
     correctionsImplemented: number;
     resolvedWithEvidence: number;
@@ -29,6 +41,8 @@ interface FeedbackReport {
     domain: string;
     topic: string;
     received: number;
+    unique: number;
+    duplicates: number;
     applied: number;
   }>;
   trend: {
@@ -43,17 +57,31 @@ interface FeedbackReport {
   };
   examples: Array<{
     category: string;
+    triageStatus: string;
+    triageReason: string | null;
+    duplicateOfId: string | null;
+    actionTaken: string | null;
+    issueLocation: string | null;
+    reportedAnswer: string | null;
+    detail: string | null;
     topic: string;
     domain: string;
     difficulty: string;
     questionExcerpt: string;
     usedInGeneration: boolean;
     correctionImplemented: boolean;
+    generationOutputsCreated: boolean;
     resolvedWithEvidence: boolean;
   }>;
   history: Array<{
     date: string;
-    metrics: { totals?: { received?: number; correctionsImplemented?: number } };
+    metrics: {
+      totals?: {
+        received?: number;
+        correctionsImplemented?: number;
+        generationOutputsCreated?: number;
+      };
+    };
   }>;
 }
 
@@ -61,6 +89,7 @@ const categoryLabels: Record<string, string> = {
   ERRADA: "Questões erradas",
   REPETIDA: "Questões repetidas",
   DIFICULDADE_INCORRETA: "Dificuldade incorreta",
+  RESPOSTA_VICIADA: "Resposta viciada",
 };
 
 export function FeedbackLearningReport() {
@@ -116,9 +145,14 @@ export function FeedbackLearningReport() {
     icon: typeof Database;
   }> = [
     { label: "Recebidos", count: report.totals.received, color: "text-slate-900", icon: Database },
+    { label: "Feedbacks únicos", count: report.totals.unique, color: "text-slate-900", icon: Database },
+    { label: "Duplicados", count: report.totals.duplicates, color: "text-slate-700", icon: Database },
+    { label: "Aprovados na triagem", count: report.totals.approved, color: "text-emerald-800", icon: CheckCircle2 },
+    { label: "Aguardando triagem", count: report.totals.pendingTriage, color: "text-amber-800", icon: Clock3 },
     { label: "Usados na geração", count: report.totals.appliedInGeneration, color: "text-sky-800", icon: Sparkles },
+    { label: "Saídas geradas", count: report.totals.generationOutputsCreated, color: "text-indigo-800", icon: Activity },
     { label: "Pendentes", count: report.totals.pending, color: "text-amber-800", icon: Clock3 },
-    { label: "Correções implementadas", count: report.totals.correctionsImplemented, color: "text-indigo-800", icon: Activity },
+    { label: "Correções editoriais aplicadas", count: report.totals.correctionsImplemented, color: "text-indigo-800", icon: Activity },
     { label: "Resolvidos com evidência", count: report.totals.resolvedWithEvidence, color: "text-emerald-800", icon: CheckCircle2 },
   ];
 
@@ -140,7 +174,7 @@ export function FeedbackLearningReport() {
           </span>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {summaryCards.map(({ label, count, color, icon: MetricIcon }) => {
             return (
               <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
@@ -191,8 +225,11 @@ export function FeedbackLearningReport() {
               <div key={category.category} className="rounded-xl border border-slate-100 p-3">
                 <p className="text-xs font-bold text-slate-800">{categoryLabels[category.category]}</p>
                 <p className="mt-1 text-[11px] leading-5 text-slate-600">
-                  Recebidos {category.received} · Aplicados {category.appliedInGeneration} · Pendentes {category.pending} ·
-                  Implementados {category.correctionsImplemented} · Resolvidos {category.resolvedWithEvidence}
+                  Recebidos {category.received} · Únicos {category.unique} · Duplicados {category.duplicates} ·
+                  Aprovados {category.approved} · Rejeitados {category.rejected} · Triagem pendente {category.pendingTriage} ·
+                  Aplicados {category.appliedInGeneration} · Pendentes de uso {category.pending} ·
+                  Correções editoriais {category.correctionsImplemented} · Questões geradas {category.generationOutputsCreated} ·
+                  Resolvidos com evidência {category.resolvedWithEvidence}
                 </p>
                 <p className="text-[11px] text-slate-500">
                   Reincidências {category.recurrences} · taxa{" "}
@@ -213,11 +250,27 @@ export function FeedbackLearningReport() {
                     {categoryLabels[example.category]} · {example.topic} · {example.difficulty}
                   </p>
                   <p className="mt-1 text-[11px] text-slate-600">{example.questionExcerpt}</p>
+                  {(example.issueLocation || example.reportedAnswer || example.detail) && (
+                    <p className="mt-1 text-[10px] text-slate-600">
+                      Report: {[example.issueLocation, example.reportedAnswer, example.detail]
+                        .filter(Boolean)
+                        .join(" — ")}
+                    </p>
+                  )}
                   <p className="mt-1 text-[10px] text-slate-500">
-                    {example.usedInGeneration ? "Feedback enviado ao prompt" : "Aguardando geração"} ·{" "}
-                    {example.correctionImplemented ? "questão gerada e persistida" : "sem correção persistida"} ·{" "}
+                    Triagem: {example.triageStatus}
+                    {example.duplicateOfId ? ` (duplicado de ${example.duplicateOfId})` : ""} ·{" "}
+                    {example.usedInGeneration ? "Feedback enviado ao prompt" : "Não enviado ao prompt"} ·{" "}
+                    {example.generationOutputsCreated ? "questões geradas após o uso" : "sem saída gerada"} ·{" "}
+                    {example.correctionImplemented ? "correção editorial aplicada" : "sem correção editorial"} ·{" "}
                     {example.resolvedWithEvidence ? "melhoria observada após exposição" : "sem evidência de resolução"}
                   </p>
+                  {example.triageReason && (
+                    <p className="mt-1 text-[10px] text-slate-500">Decisão: {example.triageReason}</p>
+                  )}
+                  {example.actionTaken && (
+                    <p className="text-[10px] text-slate-500">Medida registrada: {example.actionTaken}</p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -233,13 +286,13 @@ export function FeedbackLearningReport() {
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-xs">
               <thead className="border-b border-slate-200 text-slate-500">
-                <tr><th className="py-2">Categoria</th><th>Tópico</th><th>Dificuldade</th><th>Recebidos</th><th>Aplicados</th></tr>
+                <tr><th className="py-2">Categoria</th><th>Tópico</th><th>Dificuldade</th><th>Recebidos</th><th>Únicos</th><th>Duplicados</th><th>Aplicados</th></tr>
               </thead>
               <tbody>
                 {report.breakdowns.slice(0, 20).map((item) => (
                   <tr key={`${item.category}-${item.topic}-${item.difficulty}`} className="border-b border-slate-100">
                     <td className="py-2">{categoryLabels[item.category]}</td>
-                    <td>{item.topic}</td><td>{item.difficulty}</td><td>{item.received}</td><td>{item.applied}</td>
+                    <td>{item.topic}</td><td>{item.difficulty}</td><td>{item.received}</td><td>{item.unique}</td><td>{item.duplicates}</td><td>{item.applied}</td>
                   </tr>
                 ))}
               </tbody>

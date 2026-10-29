@@ -45,7 +45,14 @@ async function finish(page: Page) {
     page.getByRole("button", { name: /Sim, Finalizar Agora/ }).click(),
   ]);
   expect(response.status()).toBe(200);
-  return response.json();
+  const result = await response.json();
+  await page.getByRole("button", { name: "Avaliar com 5 estrelas" }).click();
+  const [reviewResponse] = await Promise.all([
+    page.waitForResponse((r) => r.url().endsWith("/feedback")),
+    page.getByRole("button", { name: "Enviar sem comentário" }).click(),
+  ]);
+  expect(reviewResponse.status()).toBe(200);
+  return result;
 }
 
 test("visitante sem login é enviado para a página de login e as APIs recusam acesso", async ({ page, request }) => {
@@ -135,19 +142,21 @@ test("Modo Estudo: revisão detalhada com explicações; isolamento entre contas
   ]);
   expect(unknownResponse.status()).toBe(200);
 
+  await page.getByLabel("Tipo de report").selectOption("REPETIDA");
   const [repeatedFeedbackResponse] = await Promise.all([
     page.waitForResponse((response) =>
       response.url().includes("/api/simulados/") && response.url().endsWith("/feedback")
     ),
-    page.getByRole("button", { name: "Questão repetida" }).click(),
+    page.getByRole("button", { name: "Registrar report" }).click(),
   ]);
   expect(repeatedFeedbackResponse.status()).toBe(200);
-  await page.getByRole("button", { name: "Dificuldade incorreta" }).click();
+  await page.getByLabel("Tipo de report").selectOption("DIFICULDADE_INCORRETA");
+  await page.getByRole("radio", { name: "Mais difícil do que deveria" }).check();
   const [difficultyFeedbackResponse] = await Promise.all([
     page.waitForResponse((response) =>
       response.url().includes("/api/simulados/") && response.url().endsWith("/feedback")
     ),
-    page.getByRole("radio", { name: "Mais difícil do que deveria" }).click(),
+    page.getByRole("button", { name: "Registrar report" }).click(),
   ]);
   expect(difficultyFeedbackResponse.status()).toBe(200);
 

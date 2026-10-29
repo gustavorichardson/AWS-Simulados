@@ -14,18 +14,19 @@ datasource db {
 // ============================================================================
 
 model User {
-  id            String        @id @default(cuid())
-  name          String
-  email         String        @unique
-  emailVerified Boolean       @default(false)
-  image         String?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  profile       Profile?
-  attempts      ExamAttempt[]
+  id               String             @id @default(cuid())
+  name             String
+  email            String             @unique
+  emailVerified    Boolean            @default(false)
+  image            String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  sessions         Session[]
+  accounts         Account[]
+  profile          Profile?
+  attempts         ExamAttempt[]
   questionFeedback QuestionFeedback[]
+  reviews          ExamReview[]
 
   @@map("users")
 }
@@ -95,40 +96,40 @@ model Profile {
 // ============================================================================
 
 model Question {
-  id                 String       @id @default(cuid())
+  id                 String             @id @default(cuid())
   domain             String // Um dos 4 domínios oficiais CLF-C02
   topic              String // Assunto específico (ex: "IAM Roles", "S3 Storage Classes")
-  stem               String       @db.Text // Enunciado
-  optionA            String       @db.Text
-  optionB            String       @db.Text
-  optionC            String       @db.Text
-  optionD            String       @db.Text
+  stem               String             @db.Text // Enunciado
+  optionA            String             @db.Text
+  optionB            String             @db.Text
+  optionC            String             @db.Text
+  optionD            String             @db.Text
   correctOptionId    String // "opt_a" | "opt_b" | "opt_c" | "opt_d"
-  explanation        String       @db.Text // Justificativa técnica liberada pós-prova
+  explanation        String             @db.Text // Justificativa técnica liberada pós-prova
   optionExplanations Json? // Justificativa correspondente a cada id opt_a...opt_d
   documentationUrl   String?
-  difficulty         String       @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
-  stemHash           String       @unique // Hash normalizado do enunciado (deduplicação)
-  source             String       @default("BANCO_INICIAL") // "BANCO_INICIAL" | "GERADA"
-  isActive           Boolean      @default(true)
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
+  difficulty         String             @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
+  stemHash           String             @unique // Hash normalizado do enunciado (deduplicação)
+  source             String             @default("BANCO_INICIAL") // "BANCO_INICIAL" | "GERADA"
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
   answers            ExamAnswer[]
-  feedback            QuestionFeedback[]
+  feedback           QuestionFeedback[]
 
   @@index([domain, topic])
   @@map("questions")
 }
 
 model ExamAttempt {
-  id                   String       @id @default(cuid())
+  id                   String             @id @default(cuid())
   userId               String
   questionCount        Int // 15, 30, 45 ou 65
-  difficulty           String       @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
+  difficulty           String             @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
   selectedDomains      String[] // Lista de domínios escolhidos
-  selectedSubtopics    String[]     @default([])
-  mode                 String       @default("PROVA") // "PROVA" | "ESTUDO"
-  isRecovery           Boolean      @default(false)
+  selectedSubtopics    String[]           @default([])
+  mode                 String             @default("PROVA") // "PROVA" | "ESTUDO"
+  isRecovery           Boolean            @default(false)
   sourceAttemptId      String? // Simulado de origem (simulado de recuperação)
   correctCount         Int?
   incorrectCount       Int?
@@ -137,11 +138,12 @@ model ExamAttempt {
   percentageScore      Int? // 0 a 100%
   estimatedScaledScore Int? // 100 a 1000
   isPassed             Boolean?
-  startedAt            DateTime     @default(now())
+  startedAt            DateTime           @default(now())
   finishedAt           DateTime?
-  user                 User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   answers              ExamAnswer[]
-  feedback         QuestionFeedback[]
+  feedback             QuestionFeedback[]
+  review               ExamReview?
 
   @@index([userId])
   @@map("exam_attempts")
@@ -165,37 +167,62 @@ model ExamAnswer {
 }
 
 model QuestionFeedback {
-  id                  String   @id @default(cuid())
-  userId              String
-  attemptId           String
-  questionId          String
-  category            String
-  difficultyDirection String?
-  difficulty          String
-  domain              String
-  topic               String
-  createdAt           DateTime @default(now())
-  usedAt              DateTime?
-  resolvedAt          DateTime?
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  attempt             ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
-  question            Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  promptUses          FeedbackPromptUse[]
+  id                      String              @id @default(cuid())
+  userId                  String
+  attemptId               String
+  questionId              String
+  category                String
+  difficultyDirection     String?
+  issueLocation           String?
+  reportedAnswer          String?             @db.Text
+  detail                  String?             @db.Text
+  difficulty              String
+  domain                  String
+  topic                   String
+  triageStatus            String              @default("PENDING")
+  triageReason            String?             @db.Text
+  duplicateOfId           String?
+  actionTaken             String?             @db.Text
+  triagedAt               DateTime?
+  createdAt               DateTime            @default(now())
+  usedAt                  DateTime?
+  resolvedAt              DateTime?
+  correctionImplementedAt DateTime?
+  user                    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempt                 ExamAttempt         @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question                Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  promptUses              FeedbackPromptUse[]
 
   @@unique([attemptId, questionId, category])
   @@index([domain, topic, category, createdAt])
   @@index([usedAt])
+  @@index([triageStatus, domain, topic])
   @@map("question_feedback")
 }
 
+model ExamReview {
+  id        String      @id @default(cuid())
+  userId    String
+  attemptId String      @unique
+  rating    Int
+  comment   String?     @db.Text
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempt   ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("exam_reviews")
+}
+
 model FeedbackPromptUse {
-  id                    String   @id @default(cuid())
-  feedbackId            String
-  generationId          String
-  generatedQuestionIds  String[] @default([])
-  usedAt                DateTime @default(now())
-  implementedAt         DateTime?
-  feedback              QuestionFeedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  id                   String           @id @default(cuid())
+  feedbackId           String
+  generationId         String
+  generatedQuestionIds String[]         @default([])
+  usedAt               DateTime         @default(now())
+  generatedAt          DateTime?        @map("implementedAt")
+  feedback             QuestionFeedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
 
   @@unique([feedbackId, generationId])
   @@index([usedAt])

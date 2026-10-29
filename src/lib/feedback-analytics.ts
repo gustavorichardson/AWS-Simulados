@@ -2,6 +2,7 @@ export const FEEDBACK_CATEGORIES = [
   "ERRADA",
   "REPETIDA",
   "DIFICULDADE_INCORRETA",
+  "RESPOSTA_VICIADA",
 ] as const;
 
 export type FeedbackCategory = (typeof FEEDBACK_CATEGORIES)[number];
@@ -13,9 +14,12 @@ export interface FeedbackMetricRecord {
   domain: string;
   topic: string;
   createdAt: Date;
+  triageStatus?: string;
+  duplicateOfId?: string | null;
+  correctionImplementedAt?: Date | null;
   promptUses: Array<{
     usedAt: Date;
-    implementedAt: Date | null;
+    generatedAt: Date | null;
     generatedQuestionIds: string[];
   }>;
   resolvedAt: Date | null;
@@ -24,7 +28,13 @@ export interface FeedbackMetricRecord {
 export interface FeedbackCategoryMetrics {
   category: FeedbackCategory;
   received: number;
+  unique: number;
+  duplicates: number;
+  approved: number;
+  rejected: number;
+  pendingTriage: number;
   appliedInGeneration: number;
+  generationOutputsCreated: number;
   pending: number;
   correctionsImplemented: number;
   resolvedWithEvidence: number;
@@ -38,17 +48,29 @@ export function calculateFeedbackCategoryMetrics(
 ): FeedbackCategoryMetrics[] {
   return FEEDBACK_CATEGORIES.map((category) => {
     const records = feedback.filter((item) => item.category === category);
-    const applied = records.filter((item) => item.promptUses.length > 0).length;
-    const recurrent = records.filter((item) => recurrentFeedbackIds.has(item.id)).length;
+    const uniqueRecords = records.filter((item) => item.triageStatus !== "DUPLICATE");
+    const applied = uniqueRecords.filter((item) => item.promptUses.length > 0).length;
+    const recurrent = uniqueRecords.filter((item) => recurrentFeedbackIds.has(item.id)).length;
+    const statusOf = (item: FeedbackMetricRecord) => item.triageStatus ?? "APPROVED";
     return {
       category,
       received: records.length,
-      appliedInGeneration: applied,
-      pending: records.length - applied,
-      correctionsImplemented: records.filter((item) =>
-        item.promptUses.some((use) => use.implementedAt !== null)
+      unique: uniqueRecords.length,
+      duplicates: records.length - uniqueRecords.length,
+      approved: uniqueRecords.filter((item) => statusOf(item) === "APPROVED").length,
+      rejected: uniqueRecords.filter((item) => statusOf(item) === "REJECTED").length,
+      pendingTriage: uniqueRecords.filter((item) =>
+        ["PENDING", "AWAITING_VALIDATION"].includes(statusOf(item))
       ).length,
-      resolvedWithEvidence: records.filter((item) => item.resolvedAt !== null).length,
+      appliedInGeneration: applied,
+      generationOutputsCreated: uniqueRecords.filter((item) =>
+        item.promptUses.some((use) => use.generatedAt !== null)
+      ).length,
+      pending: uniqueRecords.length - applied,
+      correctionsImplemented: uniqueRecords.filter(
+        (item) => item.correctionImplementedAt != null
+      ).length,
+      resolvedWithEvidence: uniqueRecords.filter((item) => item.resolvedAt !== null).length,
       recurrences: recurrent,
       recurrenceRate: applied > 0 ? Math.round((recurrent / applied) * 100) : null,
     };

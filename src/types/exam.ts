@@ -78,7 +78,12 @@ export interface QuestionInternal {
 }
 
 export type AnswerStatus = "CORRETA" | "ERRADA" | "NAO_SEI" | "NAO_RESPONDIDA";
-export type StudyFeedbackCategory = "ERRADA" | "REPETIDA" | "DIFICULDADE_INCORRETA";
+export type StudyFeedbackCategory =
+  | "ERRADA"
+  | "REPETIDA"
+  | "DIFICULDADE_INCORRETA"
+  | "RESPOSTA_VICIADA";
+export type FeedbackIssueLocation = "ENUNCIADO_INCORRETO" | "RESPOSTA_INCORRETA";
 export type DifficultyDirection = "MAIS_FACIL" | "MAIS_DIFICIL";
 export type StudyQuestionFeedbackState = Partial<
   Record<StudyFeedbackCategory, true | DifficultyDirection>
@@ -142,6 +147,7 @@ export interface ExamResultView extends Omit<ExamEvaluationResult, "detailedAnsw
   finishedAt: string | null;
   detailedAnswers?: EvaluatedAnswer[];
   unknownOptions?: UnknownOptionSelection[];
+  review?: { rating: number; comment: string | null } | null;
 }
 
 export interface ExamConfig {

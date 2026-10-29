@@ -14,6 +14,7 @@ import {
   StudyQuestionFeedbackState,
   StudyFeedbackCategory,
   DifficultyDirection,
+  FeedbackIssueLocation,
   ValidQuestionCount,
 } from "../types/exam";
 import { SelectionState, createInitialSelection, ALL_DOMAINS_KEY } from "../lib/topic-selection";
@@ -79,6 +80,10 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [examResult, setExamResult] = useState<ExamResultView | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isSavingReview, setIsSavingReview] = useState(false);
 
   const pendingAnswers = useRef<Record<string, string>>({});
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,6 +93,7 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
   const showResult = useCallback(async (id: string) => {
     const data = await requestJson<{ result: ExamResultView }>(`/api/simulados/${id}/resultado`);
     setExamResult(data.result);
+    setShowReviewModal(!data.result.review);
     setAttemptId(id);
     setView("summary");
   }, []);
@@ -280,14 +286,25 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
     questionId: string,
     category: StudyFeedbackCategory,
     active: boolean,
-    difficultyDirection?: DifficultyDirection
+    difficultyDirection?: DifficultyDirection,
+    details?: {
+      issueLocation?: FeedbackIssueLocation;
+      reportedAnswer?: string;
+      detail?: string;
+    }
   ) => {
     if (!attemptId) return;
     setApiError(null);
     try {
       await requestJson(`/api/simulados/${attemptId}/feedback`, {
         method: "POST",
-        body: JSON.stringify({ questionId, category, active, difficultyDirection }),
+        body: JSON.stringify({
+          questionId,
+          category,
+          active,
+          difficultyDirection,
+          ...details,
+        }),
       });
       setQuestionFeedback((previous) => {
         const next = { ...previous[questionId] };
@@ -332,12 +349,51 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
       pendingAnswers.current = {};
       localStorage.removeItem(storageKey);
       setExamResult(data.result);
+      setShowReviewModal(!data.result.review);
+      setReviewRating(data.result.review?.rating ?? 0);
+      setReviewComment(data.result.review?.comment ?? "");
       setView("summary");
       window.scrollTo({ top: 0 });
     } catch (err) {
       setApiError(err instanceof Error ? err.message : "Erro ao finalizar o simulado.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveReview = async (includeComment: boolean) => {
+    if (!attemptId || reviewRating === 0) return;
+    setIsSavingReview(true);
+    setApiError(null);
+    try {
+      await requestJson(`/api/simulados/${attemptId}/feedback`, {
+        method: "POST",
+        body: JSON.stringify({
+          type: "AVALIACAO_SIMULADO",
+          review: {
+            rating: reviewRating,
+            ...(includeComment && reviewComment.trim()
+              ? { comment: reviewComment.trim() }
+              : {}),
+          },
+        }),
+      });
+      setExamResult((result) =>
+        result
+          ? {
+              ...result,
+              review: {
+                rating: reviewRating,
+                comment: includeComment ? reviewComment.trim() || null : null,
+              },
+            }
+          : result
+      );
+      setShowReviewModal(false);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : "Não foi possível salvar a avaliação.");
+    } finally {
+      setIsSavingReview(false);
     }
   };
 
@@ -465,6 +521,66 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
       <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
         AWS Simulados — Preparatório para a certificação AWS Certified Cloud Practitioner (CLF-C02)
       </footer>
+
+      {showReviewModal && view === "summary" && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="exam-review-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"
+        >
+          <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            <h2 id="exam-review-title" className="text-lg font-bold text-slate-900">
+              Como foi este simulado?
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">Sua avaliação ajuda a acompanhar a qualidade das questões.</p>
+            <div className="mt-4 flex gap-2" role="group" aria-label="Avaliação de uma a cinco estrelas">
+              {[1, 2, 3, 4, 5].map((rating) => (
+                <button
+                  key={rating}
+                  type="button"
+                  aria-label={`Avaliar com ${rating} ${rating === 1 ? "estrela" : "estrelas"}`}
+                  aria-pressed={reviewRating === rating}
+                  onClick={() => setReviewRating(rating)}
+                  className={`text-3xl leading-none ${
+                    rating <= reviewRating ? "text-amber-500" : "text-slate-300"
+                  }`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <label className="mt-4 block text-sm font-semibold text-slate-700">
+              Justificativa (opcional)
+              <textarea
+                value={reviewComment}
+                onChange={(event) => setReviewComment(event.target.value)}
+                maxLength={2000}
+                rows={3}
+                className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              />
+            </label>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                disabled={reviewRating === 0 || isSavingReview}
+                onClick={() => handleSaveReview(false)}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
+              >
+                {isSavingReview ? "Salvando..." : "Enviar sem comentário"}
+              </button>
+              <button
+                type="button"
+                disabled={reviewRating === 0 || isSavingReview}
+                onClick={() => handleSaveReview(true)}
+                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-50"
+              >
+                {isSavingReview ? "Salvando..." : "Enviar avaliação"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

@@ -68,9 +68,17 @@ const UnknownOptionsSchema = z
 const QuestionFeedbackSchema = z
   .object({
     questionId: z.string().min(1).max(100),
-    category: z.enum(["ERRADA", "REPETIDA", "DIFICULDADE_INCORRETA"]),
+    category: z.enum([
+      "ERRADA",
+      "REPETIDA",
+      "DIFICULDADE_INCORRETA",
+      "RESPOSTA_VICIADA",
+    ]),
     active: z.boolean(),
     difficultyDirection: z.enum(["MAIS_FACIL", "MAIS_DIFICIL"]).optional(),
+    issueLocation: z.enum(["ENUNCIADO_INCORRETO", "RESPOSTA_INCORRETA"]).optional(),
+    reportedAnswer: z.string().trim().min(1).max(200).optional(),
+    detail: z.string().trim().max(2000).optional(),
   })
   .superRefine((feedback, context) => {
     if (feedback.category === "DIFICULDADE_INCORRETA" && !feedback.difficultyDirection) {
@@ -80,7 +88,25 @@ const QuestionFeedbackSchema = z
         path: ["difficultyDirection"],
       });
     }
+    if (feedback.active && feedback.category === "ERRADA" && !feedback.issueLocation) {
+      context.addIssue({
+        code: "custom",
+        message: "Informe se o erro está no enunciado ou na resposta.",
+        path: ["issueLocation"],
+      });
+    }
+    if (feedback.active && feedback.category === "RESPOSTA_VICIADA" && !feedback.reportedAnswer) {
+      context.addIssue({
+        code: "custom",
+        message: "Informe qual resposta está se repetindo.",
+        path: ["reportedAnswer"],
+      });
+    }
   });
+const ExamReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().trim().max(2000).optional(),
+});
 
 export const RecoverySchema = z.object({
   mode: z.enum(["ESTUDO", "PROVA"]).optional(),
@@ -97,6 +123,7 @@ function parse<T extends z.ZodTypeAny>(schema: T, data: unknown): z.output<T> {
 const attemptInclude = {
   answers: { include: { question: true }, orderBy: { position: "asc" } },
   feedback: true,
+  review: true,
 } satisfies Prisma.ExamAttemptInclude;
 
 type AttemptWithAnswers = Prisma.ExamAttemptGetPayload<{ include: typeof attemptInclude }>;
@@ -203,6 +230,9 @@ export function buildResultView(
     mode,
     isRecovery: attempt.isRecovery,
     finishedAt: attempt.finishedAt ? attempt.finishedAt.toISOString() : null,
+    review: attempt.review
+      ? { rating: attempt.review.rating, comment: attempt.review.comment }
+      : null,
     ...(mode === "ESTUDO"
       ? {
           detailedAnswers,
@@ -315,7 +345,8 @@ export async function getAttemptForUser(userId: string, attemptId: string) {
     if (
       item.category !== "ERRADA" &&
       item.category !== "REPETIDA" &&
-      item.category !== "DIFICULDADE_INCORRETA"
+      item.category !== "DIFICULDADE_INCORRETA" &&
+      item.category !== "RESPOSTA_VICIADA"
     ) {
       continue;
     }
@@ -438,6 +469,11 @@ export async function saveQuestionFeedback(
         feedback.category === "DIFICULDADE_INCORRETA"
           ? feedback.difficultyDirection
           : null,
+      issueLocation:
+        feedback.category === "ERRADA" ? feedback.issueLocation : null,
+      reportedAnswer:
+        feedback.category === "RESPOSTA_VICIADA" ? feedback.reportedAnswer : null,
+      detail: feedback.detail || null,
       difficulty: attempt.difficulty,
       domain: answer.question.domain,
       topic: answer.question.topic,
@@ -447,6 +483,41 @@ export async function saveQuestionFeedback(
         feedback.category === "DIFICULDADE_INCORRETA"
           ? feedback.difficultyDirection
           : null,
+      issueLocation: feedback.category === "ERRADA" ? feedback.issueLocation : null,
+      reportedAnswer:
+        feedback.category === "RESPOSTA_VICIADA" ? feedback.reportedAnswer : null,
+      detail: feedback.detail || null,
+      triageStatus: "PENDING",
+      triageReason: null,
+      duplicateOfId: null,
+      actionTaken: null,
+      triagedAt: null,
+    },
+  });
+  return { saved: true };
+}
+
+export async function saveExamReview(
+  userId: string,
+  attemptId: string,
+  rawReview: unknown
+) {
+  const review = parse(ExamReviewSchema, rawReview);
+  const attempt = await loadOwnedAttempt(userId, attemptId);
+  if (!attempt.finishedAt) {
+    throw new ExamServiceError(409, "Avalie o simulado somente após finalizá-lo.");
+  }
+  await prisma.examReview.upsert({
+    where: { attemptId: attempt.id },
+    create: {
+      userId,
+      attemptId: attempt.id,
+      rating: review.rating,
+      comment: review.comment || null,
+    },
+    update: {
+      rating: review.rating,
+      comment: review.comment || null,
     },
   });
   return { saved: true };

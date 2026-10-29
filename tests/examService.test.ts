@@ -6,6 +6,7 @@ import {
   getAttemptForUser,
   getResult,
   saveProgress,
+  saveExamReview,
   saveQuestionFeedback,
   startExam,
   startRecoveryExam,
@@ -208,12 +209,28 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
       questionId,
       category: "ERRADA",
       active: true,
+      issueLocation: "ENUNCIADO_INCORRETO",
+      detail: "O contexto do enunciado está incorreto.",
     });
     await saveQuestionFeedback(userA, started.attemptId, {
       questionId,
       category: "DIFICULDADE_INCORRETA",
       active: true,
       difficultyDirection: "MAIS_DIFICIL",
+    });
+    await expectServiceError(
+      saveQuestionFeedback(userA, started.attemptId, {
+        questionId,
+        category: "RESPOSTA_VICIADA",
+        active: true,
+      }),
+      400
+    );
+    await saveQuestionFeedback(userA, started.attemptId, {
+      questionId,
+      category: "RESPOSTA_VICIADA",
+      active: true,
+      reportedAnswer: "Amazon GuardDuty",
     });
 
     const resumed = await getAttemptForUser(userA, started.attemptId);
@@ -247,6 +264,17 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
     expect(report.totals.received).toBeGreaterThanOrEqual(2);
     expect(report.categories.find((category) => category.category === "ERRADA")?.pending).toBeGreaterThanOrEqual(1);
     expect(report.history.length).toBeGreaterThan(0);
+    await saveExamReview(userA, started.attemptId, {
+      rating: 5,
+      comment: "Questões úteis.",
+    });
+    await saveExamReview(userA, started.attemptId, { rating: 4 });
+    expect(await prisma.examReview.findUniqueOrThrow({ where: { attemptId: started.attemptId } }))
+      .toMatchObject({ rating: 4, comment: null });
+    await expectServiceError(
+      saveExamReview(userA, started.attemptId, { rating: 6 }),
+      400
+    );
 
     await expectServiceError(
       saveQuestionFeedback(userA, started.attemptId, {

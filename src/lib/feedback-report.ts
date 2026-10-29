@@ -25,7 +25,7 @@ export async function getFeedbackReport() {
       promptUses: {
         select: {
           usedAt: true,
-          implementedAt: true,
+          generatedAt: true,
           generatedQuestionIds: true,
         },
       },
@@ -43,6 +43,9 @@ export async function getFeedbackReport() {
             domain: row.domain,
             topic: row.topic,
             createdAt: row.createdAt,
+            triageStatus: row.triageStatus,
+            duplicateOfId: row.duplicateOfId,
+            correctionImplementedAt: row.correctionImplementedAt,
             promptUses: row.promptUses,
             resolvedAt: row.resolvedAt,
           },
@@ -74,7 +77,7 @@ export async function getFeedbackReport() {
   const recurrentFeedbackIds = new Set<string>();
   const resolvedFeedbackIds = new Set<string>();
   const feedbackGroups = new Map<string, FeedbackMetricRecord[]>();
-  for (const item of feedback) {
+  for (const item of feedback.filter((record) => record.triageStatus !== "DUPLICATE")) {
     const key = [item.category, item.domain, item.topic].join("|");
     const group = feedbackGroups.get(key) ?? [];
     group.push(item);
@@ -84,22 +87,22 @@ export async function getFeedbackReport() {
     group.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     const lastFeedback = group[group.length - 1];
     group.forEach((item, index) => {
-      const latestImplementation = item.promptUses
-        .map((use) => use.implementedAt)
+      const latestGeneration = item.promptUses
+        .map((use) => use.generatedAt)
         .filter((date): date is Date => date !== null)
         .sort((a, b) => b.getTime() - a.getTime())[0];
-      if (!latestImplementation) return;
+      if (!latestGeneration) return;
 
       const laterFeedback =
-        index < group.length - 1 && lastFeedback.createdAt > latestImplementation;
+        index < group.length - 1 && lastFeedback.createdAt > latestGeneration;
       if (laterFeedback) recurrentFeedbackIds.add(item.id);
 
       const exposedCount = new Set(
         item.promptUses
-          .filter((use) => use.implementedAt !== null)
+          .filter((use) => use.generatedAt !== null)
           .flatMap((use) => use.generatedQuestionIds)
           .filter((questionId) =>
-            (exposureDates.get(questionId) ?? []).some((date) => date > latestImplementation)
+            (exposureDates.get(questionId) ?? []).some((date) => date > latestGeneration)
           )
       ).size;
       if (!laterFeedback && exposedCount >= 5) resolvedFeedbackIds.add(item.id);
@@ -128,16 +131,28 @@ export async function getFeedbackReport() {
   const totals = categories.reduce(
     (result, category) => ({
       received: result.received + category.received,
+      unique: result.unique + category.unique,
+      duplicates: result.duplicates + category.duplicates,
+      approved: result.approved + category.approved,
+      rejected: result.rejected + category.rejected,
+      pendingTriage: result.pendingTriage + category.pendingTriage,
       appliedInGeneration: result.appliedInGeneration + category.appliedInGeneration,
       pending: result.pending + category.pending,
       correctionsImplemented: result.correctionsImplemented + category.correctionsImplemented,
+      generationOutputsCreated: result.generationOutputsCreated + category.generationOutputsCreated,
       resolvedWithEvidence: result.resolvedWithEvidence + category.resolvedWithEvidence,
     }),
     {
       received: 0,
+      unique: 0,
+      duplicates: 0,
+      approved: 0,
+      rejected: 0,
+      pendingTriage: 0,
       appliedInGeneration: 0,
       pending: 0,
       correctionsImplemented: 0,
+      generationOutputsCreated: 0,
       resolvedWithEvidence: 0,
     }
   );
@@ -150,8 +165,9 @@ export async function getFeedbackReport() {
       where: { attempt: { finishedAt: { gte: previousStart, lt: currentStart } } },
     }),
   ]);
-  const currentIssues = feedback.filter((item) => item.createdAt >= currentStart).length;
-  const previousIssues = feedback.filter(
+  const uniqueFeedback = feedback.filter((item) => item.triageStatus !== "DUPLICATE");
+  const currentIssues = uniqueFeedback.filter((item) => item.createdAt >= currentStart).length;
+  const previousIssues = uniqueFeedback.filter(
     (item) => item.createdAt >= previousStart && item.createdAt < currentStart
   ).length;
   const currentRate =
@@ -165,7 +181,16 @@ export async function getFeedbackReport() {
 
   const breakdowns = new Map<
     string,
-    { category: FeedbackCategory; difficulty: string; domain: string; topic: string; received: number; applied: number }
+    {
+      category: FeedbackCategory;
+      difficulty: string;
+      domain: string;
+      topic: string;
+      received: number;
+      unique: number;
+      duplicates: number;
+      applied: number;
+    }
   >();
   for (const item of feedback) {
     const key = [item.category, item.difficulty, item.domain, item.topic].join("|");
@@ -175,10 +200,16 @@ export async function getFeedbackReport() {
       domain: item.domain,
       topic: item.topic,
       received: 0,
+      unique: 0,
+      duplicates: 0,
       applied: 0,
     };
     current.received++;
-    if (item.promptUses.length > 0) current.applied++;
+    if (item.triageStatus === "DUPLICATE") current.duplicates++;
+    else {
+      current.unique++;
+      if (item.promptUses.length > 0) current.applied++;
+    }
     breakdowns.set(key, current);
   }
 
@@ -205,12 +236,20 @@ export async function getFeedbackReport() {
       .slice(0, 6)
       .map((row) => ({
         category: row.category,
+        triageStatus: row.triageStatus,
+        triageReason: row.triageReason,
+        duplicateOfId: row.duplicateOfId,
+        actionTaken: row.actionTaken,
+        issueLocation: row.issueLocation,
+        reportedAnswer: row.reportedAnswer,
+        detail: row.detail,
         topic: row.topic,
         domain: row.domain,
         difficulty: row.difficulty,
         questionExcerpt: row.question.stem.slice(0, 220),
         usedInGeneration: row.promptUses.length > 0,
-        correctionImplemented: row.promptUses.some((use) => use.implementedAt !== null),
+        correctionImplemented: row.correctionImplementedAt !== null,
+        generationOutputsCreated: row.promptUses.some((use) => use.generatedAt !== null),
         resolvedWithEvidence: resolvedFeedbackIds.has(row.id),
       })),
   };
