@@ -108,22 +108,24 @@ export interface GenerateQuestionsOptions {
 const OPTION_IDS = ["opt_a", "opt_b", "opt_c", "opt_d"] as const;
 
 export function hasHardAnswerContext(text: string): boolean {
-  const words = text.trim().split(/\s+/);
-  return (
-    words.length > 7 ||
-    /[,;:!?()]|\b(?:com|que|permite|oferece|fornece|serviço|servico|armazenamento|banco de dados|usado para|ideal para|responsável por)\b/i.test(
-      text
-    )
+  return /\b(?:permite|oferece|fornece|responsável por|responsavel por|usado para|ideal para|serviço de|servico de|que atende|que oferece)\b/i.test(
+    text
   );
 }
 
 function hasExplanatoryOptionContext(text: string): boolean {
-  const words = text.trim().split(/\s+/);
-  return (
-    words.length > 7 ||
-    /[,;:!?()]|\b(?:permite|oferece|fornece|serviço de|servico de|usado para|ideal para|responsável por|responsavel por)\b/i.test(
-      text
-    )
+  return /\b(?:permite|oferece|fornece|responsável por|responsavel por|usado para|ideal para|serviço de|servico de|que atende|que oferece)\b/i.test(
+    text
+  );
+}
+
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function hasExplicitAwsKeyword(text: string): boolean {
+  return /\b(?:AWS|Amazon|EC2|S3|IAM|VPC|RDS|EBS|EFS|SQS|SNS|KMS|WAF|EKS|ECS|DynamoDB|Lambda|CloudWatch|CloudTrail|GuardDuty|Inspector|Route 53)\b/i.test(
+    text
   );
 }
 
@@ -132,12 +134,38 @@ export function matchesDifficultyShape(
   options: Array<{ text: string }>,
   difficulty: QuestionDifficulty
 ): boolean {
-  const wordCount = stem.trim().split(/\s+/).length;
-  if (difficulty === "EASY") return wordCount <= 45;
-  if (difficulty === "MEDIUM") {
-    return wordCount >= 20 && options.every((option) => !hasExplanatoryOptionContext(option.text));
+  const stemWords = wordCount(stem);
+  if (options.length !== 4 || options.some((option) => wordCount(option.text) === 0)) {
+    return false;
   }
-  return wordCount >= 45 && options.every((option) => !hasHardAnswerContext(option.text));
+
+  if (difficulty === "EASY") {
+    return (
+      stemWords >= 6 &&
+      stemWords <= 35 &&
+      hasExplicitAwsKeyword(stem) &&
+      options.every((option) => wordCount(option.text) <= 24)
+    );
+  }
+  if (difficulty === "MEDIUM") {
+    return (
+      stemWords >= 25 &&
+      stemWords <= 85 &&
+      options.every(
+        (option) => wordCount(option.text) <= 7 && !hasExplanatoryOptionContext(option.text)
+      )
+    );
+  }
+  return (
+    stemWords >= 45 &&
+    stemWords <= 160 &&
+    options.every(
+      (option) =>
+        wordCount(option.text) <= 14 &&
+        !hasHardAnswerContext(option.text) &&
+        !/[.!?]/.test(option.text)
+    )
+  );
 }
 
 // Modelos tentados em ordem quando GEMINI_MODEL não está definido (fallback em caso de 404/503)
@@ -147,11 +175,11 @@ export function buildQuestionPrompt(options: GenerateQuestionsOptions): string {
   const domainTarget = options.domain || "qualquer um dos 4 domínios oficiais";
   const difficultyInstructions: Record<QuestionDifficulty, string> = {
     EASY:
-      "FÁCIL: enunciado curto, intuitivo e com palavras-chave claras; alternativas plausíveis e relacionadas, podendo incluir contexto explicativo curto.",
+      "FÁCIL: enunciado intuitivo de 6 a 35 palavras, com palavras-chave explícitas da AWS; alternativas plausíveis e relacionadas, podendo incluir contexto funcional leve de até 24 palavras.",
     MEDIUM:
-      "MÉDIO: enunciado elaborado, com cenário e possíveis palavras-chave intuitivas; alternativas objetivas e concisas, sem explicações nem contexto adicional.",
+      "MÉDIO: enunciado situacional de 25 a 85 palavras, mantendo termos técnicos relevantes; alternativas diretas com até 7 palavras, sem explicações nem contexto adicional.",
     HARD:
-      "DIFÍCIL: enunciado longo e elaborado, com raciocínio não intuitivo e sem palavras-chave que entreguem o conceito correto. Alternativas diretas e curtas, sem explicações ou contexto. Mantenha-se no escopo CLF-C02.",
+      "DIFÍCIL: cenário realista de arquitetura, elaborado e com 45 a 160 palavras, sem palavras-chave que revelem a solução. Alternativas tecnicamente próximas, de até 14 palavras, sem frases explicativas; exija interpretação de nuances dentro do escopo CLF-C02.",
   };
   const subtopicsTarget =
     options.subtopics && options.subtopics.length > 0
@@ -315,10 +343,10 @@ export async function generateQuestionsWithGemini(
         }
         const raw = parsed.data;
 
-            if (!matchesDifficultyShape(raw.stem, raw.options, options.difficulty)) {
-              reject("estrutura incompatível com a dificuldade solicitada");
-              continue;
-            }
+        if (!matchesDifficultyShape(raw.stem, raw.options, options.difficulty)) {
+          reject("estrutura incompatível com a dificuldade solicitada");
+          continue;
+        }
 
         if (!allowedSubtopics.has(raw.subtopic)) {
           reject("subtópico fora da lista");

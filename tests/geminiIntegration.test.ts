@@ -117,13 +117,19 @@ describe("Integração Gemini API (Server-Side) e Validação Estruturada com Zo
 
     expect(easyPrompt).toContain("REGRA DE ESCOPO INEGOCIÁVEL");
     expect(easyPrompt).toContain("NUNCA ultrapasse esse nível");
-    expect(easyPrompt).toContain("enunciado curto, intuitivo");
-    expect(hardPrompt).toContain("enunciado longo e elaborado");
-    expect(hardPrompt).toContain("Alternativas diretas e curtas");
+    expect(easyPrompt).toContain("enunciado intuitivo de 6 a 35 palavras");
+    expect(hardPrompt).toContain("cenário realista de arquitetura");
+    expect(hardPrompt).toContain("tecnicamente próximas");
   });
 
   it("aplica estruturas diferentes às dificuldades e rejeita contexto nas alternativas médias/difíceis", () => {
     const shortStem = "Qual serviço gerencia permissões e credenciais na AWS?";
+    const easyOptions = [
+      { text: "AWS IAM — controla identidades e permissões." },
+      { text: "AWS CloudTrail — registra atividades da conta." },
+      { text: "AWS KMS — gerencia chaves de criptografia." },
+      { text: "Amazon S3 — armazena objetos." },
+    ];
     const mediumStem =
       "Uma empresa precisa organizar permissões temporárias para workloads de várias contas e evitar credenciais permanentes. Qual serviço ou recurso atende a esse requisito com menor privilégio?";
     const hardStem =
@@ -135,13 +141,24 @@ describe("Integração Gemini API (Server-Side) e Validação Estruturada com Zo
       { text: "AWS KMS" },
     ];
 
-    expect(matchesDifficultyShape(shortStem, directOptions, "EASY")).toBe(true);
+    expect(matchesDifficultyShape(shortStem, easyOptions, "EASY")).toBe(true);
+    expect(matchesDifficultyShape("Qual recurso concede permissões temporárias?", easyOptions, "EASY")).toBe(false);
+    expect(
+      matchesDifficultyShape(
+        `${shortStem} ${"Com uma organização que precisa manter controles consistentes em várias contas.".repeat(3)}`,
+        easyOptions,
+        "EASY"
+      )
+    ).toBe(false);
     expect(matchesDifficultyShape(mediumStem, directOptions, "MEDIUM")).toBe(true);
     expect(
       matchesDifficultyShape(mediumStem, [{ text: "AWS IAM fornece permissões temporárias." }, ...directOptions.slice(1)], "MEDIUM")
     ).toBe(false);
     expect(matchesDifficultyShape(hardStem, directOptions, "HARD")).toBe(true);
     expect(matchesDifficultyShape(shortStem, directOptions, "HARD")).toBe(false);
+    expect(matchesDifficultyShape(mediumStem, directOptions, "HARD")).toBe(false);
+    expect(matchesDifficultyShape(hardStem, [...directOptions.slice(1), { text: "AWS IAM fornece permissões." }], "HARD")).toBe(false);
+    expect(matchesDifficultyShape(shortStem, directOptions.slice(0, 3), "EASY")).toBe(false);
   });
 
   it("inclui sinais de feedback nos prompts sem afirmar treinamento automático", () => {
