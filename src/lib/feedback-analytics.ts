@@ -52,6 +52,13 @@ export function calculateFeedbackCategoryMetrics(
     const applied = uniqueRecords.filter((item) => item.promptUses.length > 0).length;
     const recurrent = uniqueRecords.filter((item) => recurrentFeedbackIds.has(item.id)).length;
     const statusOf = (item: FeedbackMetricRecord) => item.triageStatus ?? "APPROVED";
+    const pending = uniqueRecords.filter((item) => {
+      const status = statusOf(item);
+      return (
+        ["PENDING", "AWAITING_VALIDATION"].includes(status) ||
+        (status === "APPROVED" && item.promptUses.length === 0)
+      );
+    }).length;
     return {
       category,
       received: records.length,
@@ -66,7 +73,7 @@ export function calculateFeedbackCategoryMetrics(
       generationOutputsCreated: uniqueRecords.filter((item) =>
         item.promptUses.some((use) => use.generatedAt !== null)
       ).length,
-      pending: uniqueRecords.length - applied,
+      pending,
       correctionsImplemented: uniqueRecords.filter(
         (item) => item.correctionImplementedAt != null
       ).length,

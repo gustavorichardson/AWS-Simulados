@@ -24,10 +24,15 @@ import { isNearDuplicate } from "./question-quality";
 import { triagePendingFeedback } from "./feedback-triage";
 
 export class InsufficientQuestionsError extends Error {
-  constructor(public readonly available: number, public readonly requested: number) {
+  constructor(
+    public readonly available: number,
+    public readonly requested: number,
+    message?: string
+  ) {
     super(
-      `Não há questões inéditas suficientes para os tópicos escolhidos (${available} de ${requested}). ` +
-        "Escolha mais tópicos ou uma quantidade menor de questões."
+      message ??
+        `Não há questões inéditas suficientes para os tópicos escolhidos (${available} de ${requested}). ` +
+          "Escolha mais tópicos ou uma quantidade menor de questões."
     );
     this.name = "InsufficientQuestionsError";
   }
@@ -138,6 +143,54 @@ export interface SelectQuestionsParams {
 export function getRecoveryDistribution(count: number) {
   const direct = Math.ceil(count * 0.4);
   return { direct, broader: count - direct };
+}
+
+export function getSubtopicDistribution(count: number) {
+  const selected = Math.ceil(count / 2);
+  return { selected, complementary: count - selected };
+}
+
+export function getComplementarySubtopics(selectedSubtopics: string[]): string[] {
+  const selected = new Set(selectedSubtopics);
+  return [
+    ...new Set(
+      DOMAIN_HIERARCHIES.filter((hierarchy) =>
+        hierarchy.subtopics.some((topic) => selected.has(topic))
+      ).flatMap((hierarchy) => hierarchy.subtopics.filter((topic) => !selected.has(topic)))
+    ),
+  ];
+}
+
+export function selectBalancedByTopic<T extends { id: string; topic: string }>(
+  questions: T[],
+  topics: string[],
+  count: number,
+  excludedIds: Set<string> = new Set()
+): T[] {
+  const buckets = new Map(
+    topics.map((topic) => [
+      topic,
+      shuffle(
+        questions.filter((question) => question.topic === topic && !excludedIds.has(question.id))
+      ),
+    ])
+  );
+  const selected: T[] = [];
+  const indices = new Map(topics.map((topic) => [topic, 0]));
+  while (selected.length < count) {
+    let progressed = false;
+    for (const topic of shuffle(topics)) {
+      if (selected.length >= count) break;
+      const bucket = buckets.get(topic) ?? [];
+      const index = indices.get(topic) ?? 0;
+      if (index >= bucket.length) continue;
+      selected.push(bucket[index]);
+      indices.set(topic, index + 1);
+      progressed = true;
+    }
+    if (!progressed) break;
+  }
+  return selected;
 }
 
 function balanceCorrectOptionPosition(
@@ -317,12 +370,19 @@ export async function selectQuestionsForUser(
         (hierarchy) => hierarchy.subtopics
       )
     : params.subtopics;
+  const complementaryTopics =
+    !isRecoveryFocus && params.subtopics.length > 0
+      ? getComplementarySubtopics(params.subtopics)
+      : [];
+  const poolTopics = isRecoveryFocus
+    ? allowedTopics
+    : [...new Set([...params.subtopics, ...complementaryTopics])];
   const pool = await prisma.question.findMany({
     where: {
       isActive: true,
       domain: { in: params.domains },
       difficulty: params.difficulty,
-      ...(allowedTopics.length > 0 ? { topic: { in: allowedTopics } } : {}),
+      ...(poolTopics.length > 0 ? { topic: { in: poolTopics } } : {}),
     },
   });
 
@@ -400,6 +460,118 @@ export async function selectQuestionsForUser(
         console.error("[questoes] geração de recuperação complementar indisponível:", (error as Error).message);
       }
     }
+  } else if (params.subtopics.length > 0) {
+    const { selected: selectedTarget, complementary: complementaryTarget } =
+      getSubtopicDistribution(params.count);
+    const internalPool = pool.map(toInternalQuestion);
+    const unseen = internalPool.filter((question) => !lastSeen.has(question.id));
+    const selectedGroup = selectBalancedByTopic(
+      unseen,
+      params.subtopics,
+      selectedTarget
+    );
+    const complementaryGroup = selectBalancedByTopic(
+      unseen,
+      complementaryTopics,
+      complementaryTarget,
+      new Set(selectedGroup.map((question) => question.id))
+    );
+
+    const selectedQuestions = [...selectedGroup];
+    const complementaryQuestions = [...complementaryGroup];
+    const knownStems = pool.map((question) => question.stem);
+    const feedbackSignals = await loadRelevantFeedback(
+      params.domains,
+      [...params.subtopics, ...complementaryTopics]
+    );
+
+    if (selectedQuestions.length < selectedTarget && isAiGenerationConfigured()) {
+      try {
+        const generated = await generateMissingQuestions(
+          selectedTarget - selectedQuestions.length,
+          params.domains,
+          params.difficulty,
+          params.subtopics,
+          knownStems,
+          feedbackSignals,
+          complementaryTopics
+        );
+        selectedQuestions.push(
+          ...selectBalancedByTopic(
+            generated,
+            params.subtopics,
+            selectedTarget - selectedQuestions.length
+          )
+        );
+      } catch (error) {
+        console.error("[questoes] geração de subtópicos selecionados indisponível:", (error as Error).message);
+      }
+    }
+
+    if (complementaryQuestions.length < complementaryTarget && isAiGenerationConfigured()) {
+      try {
+        const generated = await generateMissingQuestions(
+          complementaryTarget - complementaryQuestions.length,
+          params.domains,
+          params.difficulty,
+          complementaryTopics,
+          knownStems,
+          feedbackSignals,
+          params.subtopics
+        );
+        complementaryQuestions.push(
+          ...selectBalancedByTopic(
+            generated,
+            complementaryTopics,
+            complementaryTarget - complementaryQuestions.length
+          )
+        );
+      } catch (error) {
+        console.error("[questoes] geração de subtópicos complementares indisponível:", (error as Error).message);
+      }
+    }
+
+    if (params.allowSeenReuse) {
+      const seenQuestions = internalPool.filter((question) => lastSeen.has(question.id));
+      const selectedIds = new Set(selectedQuestions.map((question) => question.id));
+      selectedQuestions.push(
+        ...selectBalancedByTopic(
+          seenQuestions,
+          params.subtopics,
+          selectedTarget - selectedQuestions.length,
+          selectedIds
+        )
+      );
+      const excludedIds = new Set([
+        ...selectedIds,
+        ...complementaryQuestions.map((question) => question.id),
+      ]);
+      complementaryQuestions.push(
+        ...selectBalancedByTopic(
+          seenQuestions,
+          complementaryTopics,
+          complementaryTarget - complementaryQuestions.length,
+          excludedIds
+        )
+      );
+    }
+
+    if (
+      selectedQuestions.length < selectedTarget ||
+      complementaryQuestions.length < complementaryTarget
+    ) {
+      const available = selectedQuestions.length + complementaryQuestions.length;
+      throw new InsufficientQuestionsError(
+        available,
+        params.count,
+        `Não há conteúdo suficiente para a distribuição 50/50 dos subtópicos selecionados ` +
+          `(${selectedQuestions.length}/${selectedTarget} selecionados; ` +
+          `${complementaryQuestions.length}/${complementaryTarget} complementares). ` +
+          "Aumente o banco de questões ou selecione outros subtópicos."
+      );
+    }
+
+    [...selectedQuestions, ...complementaryQuestions].forEach(add);
   } else {
     shuffle(pool.filter((q) => !lastSeen.has(q.id))).forEach((q) => add(toInternalQuestion(q)));
 

@@ -9,28 +9,34 @@ vi.mock("../src/lib/gemini", async (importOriginal) => {
   return {
     ...original,
     isAiGenerationConfigured: () => true,
-    generateQuestionsWithGemini: vi.fn(async (options: { difficulty: QuestionDifficulty }): Promise<QuestionInternal[]> => {
-      const make = (i: number, stem: string): QuestionInternal => ({
-        id: `gen_${tag}_${i}`,
-        domain: "Domínio 2: Segurança e Conformidade",
-        topic: TOPIC,
-        stem,
-        options: [
-          { id: "opt_a", text: "Opção alfa plausível." },
-          { id: "opt_b", text: "Opção beta plausível." },
-          { id: "opt_c", text: "Opção gama plausível." },
-          { id: "opt_d", text: "Opção delta plausível." },
-        ],
-        correctOptionId: "opt_c",
-        explanation: "Explicação de teste suficientemente longa.",
-        difficulty: options.difficulty,
-        optionExplanations: {
-          opt_a: "A alternativa A não atende ao requisito deste cenário.",
-          opt_b: "A alternativa B não atende ao requisito deste cenário.",
-          opt_c: "A alternativa C atende ao requisito deste cenário.",
-          opt_d: "A alternativa D não atende ao requisito deste cenário.",
-        },
-      });
+    generateQuestionsWithGemini: vi.fn(async (options: {
+      difficulty: QuestionDifficulty;
+      subtopics?: string[];
+    }): Promise<QuestionInternal[]> => {
+      const make = (i: number, stem: string): QuestionInternal => {
+        const topic = options.subtopics?.[i % (options.subtopics.length || 1)] ?? TOPIC;
+        return {
+          id: `gen_${tag}_${i}`,
+          domain: findDomainBySubtopic(topic) ?? "Domínio 2: Segurança e Conformidade",
+          topic,
+          stem,
+          options: [
+            { id: "opt_a", text: "Opção alfa plausível." },
+            { id: "opt_b", text: "Opção beta plausível." },
+            { id: "opt_c", text: "Opção gama plausível." },
+            { id: "opt_d", text: "Opção delta plausível." },
+          ],
+          correctOptionId: "opt_c",
+          explanation: "Explicação de teste suficientemente longa.",
+          difficulty: options.difficulty,
+          optionExplanations: {
+            opt_a: "A alternativa A não atende ao requisito deste cenário.",
+            opt_b: "A alternativa B não atende ao requisito deste cenário.",
+            opt_c: "A alternativa C atende ao requisito deste cenário.",
+            opt_d: "A alternativa D não atende ao requisito deste cenário.",
+          },
+        };
+      };
       const words = ["varejo", "hospital", "banco", "escola", "logística", "mídia", "governo", "jogos", "energia", "seguros",
         "turismo", "agro", "fintech", "telecom", "farmácia", "indústria", "imobiliária", "esportes", "música", "transporte"];
       const verbs = ["armazenar", "rotacionar", "auditar", "compartilhar", "revogar", "proteger", "versionar", "replicar", "monitorar", "criptografar",
@@ -45,8 +51,12 @@ vi.mock("../src/lib/gemini", async (importOriginal) => {
 });
 
 import { prisma } from "../src/lib/prisma";
-import { selectQuestionsForUser } from "../src/lib/question-generator";
+import {
+  InsufficientQuestionsError,
+  selectQuestionsForUser,
+} from "../src/lib/question-generator";
 import { computeStemHash } from "../src/lib/gemini";
+import { DOMAIN_HIERARCHIES, findDomainBySubtopic } from "../src/types/subtopics";
 
 let userId: string;
 
@@ -61,7 +71,7 @@ afterAll(async () => {
 });
 
 describe("Geração de questões quando o banco não tem inéditas suficientes", () => {
-  it("completa o simulado com questões novas, únicas, do tópico pedido e persistidas", async () => {
+  it("completa a distribuição 50/50 com questões novas e persistidas", async () => {
     const feedbackQuestion = await prisma.question.create({
       data: {
         id: `gen_feedback_${tag}`,
@@ -113,16 +123,22 @@ describe("Geração de questões quando o banco não tem inéditas suficientes",
     expect(questions).toHaveLength(15);
     expect(new Set(questions.map((q) => q.id)).size).toBe(15);
     expect(new Set(questions.map((q) => computeStemHash(q.stem))).size).toBe(15);
-    questions.forEach((q) => expect(q.topic).toBe(TOPIC));
+    const selectedTopics = questions.filter((question) => question.topic === TOPIC);
+    const complementaryTopics = questions.filter((question) => question.topic !== TOPIC);
+    expect(selectedTopics).toHaveLength(8);
+    expect(complementaryTopics).toHaveLength(7);
+    complementaryTopics.forEach((question) =>
+      expect(question.domain).toBe("Domínio 2: Segurança e Conformidade")
+    );
     questions.forEach((q) => expect(q.difficulty).toBe("EASY"));
     const persisted = await prisma.question.findMany({
       where: { id: { in: questions.map((q) => q.id) } },
-      select: { id: true, difficulty: true, correctOptionId: true, source: true },
+      select: { id: true, difficulty: true, correctOptionId: true, source: true, stem: true },
     });
     expect(persisted).toHaveLength(15);
     persisted.forEach((question) => expect(question.difficulty).toBe("EASY"));
     const generatedCorrectIds = persisted
-      .filter((question) => question.source === "GERADA")
+      .filter((question) => question.source === "GERADA" && question.stem.includes(tag))
       .map((question) => question.correctOptionId);
     const answerPositionCounts = ["opt_a", "opt_b", "opt_c", "opt_d"].map(
       (optionId) => generatedCorrectIds.filter((id) => id === optionId).length
@@ -132,5 +148,22 @@ describe("Geração de questões quando o banco não tem inéditas suficientes",
     expect(promptUses.length).toBeGreaterThan(0);
     expect(promptUses.every((use) => use.generatedAt !== null)).toBe(true);
     expect(promptUses.every((use) => use.generatedQuestionIds.length > 0)).toBe(true);
+  });
+
+  it("não apresenta uma distribuição válida quando todos os subtópicos do domínio foram selecionados", async () => {
+    const securityTopics = DOMAIN_HIERARCHIES.find(
+      (hierarchy) => hierarchy.domain === "Domínio 2: Segurança e Conformidade"
+    )!.subtopics;
+
+    await expect(
+      selectQuestionsForUser({
+        userId,
+        count: 15,
+        difficulty: "EASY",
+        domains: ["Domínio 2: Segurança e Conformidade"],
+        subtopics: securityTopics,
+        allowSeenReuse: false,
+      })
+    ).rejects.toBeInstanceOf(InsufficientQuestionsError);
   });
 });

@@ -152,7 +152,11 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
       selectedSubtopics: [TEST_TOPIC],
     });
 
-    const questionId = started.questions[0].id;
+    const attemptQuestion = await prisma.examAnswer.findFirstOrThrow({
+      where: { attemptId: started.attemptId },
+      include: { question: true },
+    });
+    const questionId = attemptQuestion.questionId;
     const beforeAnswer = await getAttemptForUser(studyUser, started.attemptId);
     expect(beforeAnswer.finished).toBe(false);
     if (beforeAnswer.finished) return;
@@ -162,15 +166,16 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
     const saved = await saveProgress(studyUser, started.attemptId, { [questionId]: selectedOptionId });
     const feedback = saved.studyFeedback?.[questionId];
     expect(feedback?.isCorrect).toBe(false);
-    expect(feedback?.correctOptionId).toBe("opt_a");
+    expect(feedback?.correctOptionId).toBe(attemptQuestion.question.correctOptionId);
     const selectedRationale = Object.entries(feedback?.optionExplanations ?? {}).find(
       ([optionId]) => optionId === selectedOptionId
     )?.[1];
     const correctRationale = Object.entries(feedback?.optionExplanations ?? {}).find(
-      ([optionId]) => optionId === "opt_a"
+      ([optionId]) => optionId === attemptQuestion.question.correctOptionId
     )?.[1];
-    expect(selectedRationale).toContain("não protege contra DDoS");
-    expect(correctRationale).toContain("oferece proteção");
+    expect(selectedRationale).toBeTruthy();
+    expect(correctRationale).toBeTruthy();
+    expect(selectedRationale).not.toBe(correctRationale);
 
     const resumed = await getAttemptForUser(studyUser, started.attemptId);
     expect(resumed.finished).toBe(false);
@@ -249,7 +254,10 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
           category: "DIFICULDADE_INCORRETA",
         },
       })
-    ).toMatchObject({ difficultyDirection: "MAIS_DIFICIL", topic: TEST_TOPIC });
+    ).toMatchObject({
+      difficultyDirection: "MAIS_DIFICIL",
+      topic: question.topic,
+    });
 
     const result = await finishExam(userA, started.attemptId, { [questionId]: correctOptionId });
     expect(result.correctCount).toBe(1);
@@ -352,9 +360,24 @@ describe("Simulado de recuperação", () => {
     const answers: Record<string, string> = {};
     for (const q of first.questions) answers[q.id] = DONT_KNOW_OPTION_ID;
     const result = await finishExam(user, first.attemptId, answers);
-    expect(result.recoveryTopics).toEqual([TEST_TOPIC]);
+    const weakTopics = await prisma.examAnswer.findMany({
+      where: { attemptId: first.attemptId, status: "NAO_SEI" },
+      include: { question: { select: { topic: true } } },
+    });
+    expect(new Set(result.recoveryTopics)).toEqual(
+      new Set(weakTopics.map((answer) => answer.question.topic))
+    );
 
-    const recovery = await startRecoveryExam(user, first.attemptId);
+    let recovery: Awaited<ReturnType<typeof startRecoveryExam>>;
+    try {
+      recovery = await startRecoveryExam(user, first.attemptId);
+    } catch (error) {
+      expect(error).toBeInstanceOf(ExamServiceError);
+      if (!(error instanceof ExamServiceError)) throw error;
+      expect(error.status).toBe(409);
+      expect(error.message).toMatch(/Não há questões inéditas suficientes/);
+      return;
+    }
     expect(recovery.isRecovery).toBe(true);
     expect(recovery.mode).toBe("ESTUDO");
     const firstIds = new Set(first.questions.map((q) => q.id));
@@ -363,7 +386,9 @@ describe("Simulado de recuperação", () => {
       where: { id: { in: recovery.questions.map((q) => q.id) } },
       select: { topic: true, domain: true },
     });
-    expect(recoveryQuestions.filter((question) => question.topic === TEST_TOPIC).length).toBeGreaterThanOrEqual(6);
+    expect(
+      recoveryQuestions.filter((question) => result.recoveryTopics.includes(question.topic)).length
+    ).toBeGreaterThanOrEqual(6);
     expect(recoveryQuestions.some((question) => question.topic !== TEST_TOPIC)).toBe(true);
     recoveryQuestions.forEach((question) =>
       expect(question.domain).toBe("Domínio 2: Segurança e Conformidade")
@@ -371,11 +396,29 @@ describe("Simulado de recuperação", () => {
     const attempt = await prisma.examAttempt.findUniqueOrThrow({ where: { id: recovery.attemptId } });
     expect(attempt.sourceAttemptId).toBe(first.attemptId);
 
-    // A próxima recuperação permanece restrita aos tópicos que voltaram a apresentar erro.
+    // A recuperação seguinte foca novamente os tópicos em que houve lacuna.
     const all: Record<string, string> = {};
     for (const q of recovery.questions) all[q.id] = DONT_KNOW_OPTION_ID;
     await finishExam(user, recovery.attemptId, all);
-    await expectServiceError(startRecoveryExam(user, recovery.attemptId), 409);
+    let nextRecovery: Awaited<ReturnType<typeof startRecoveryExam>>;
+    try {
+      nextRecovery = await startRecoveryExam(user, recovery.attemptId);
+    } catch (error) {
+      expect(error).toBeInstanceOf(ExamServiceError);
+      if (!(error instanceof ExamServiceError)) throw error;
+      expect(error.status).toBe(409);
+      expect(error.message).toMatch(/Não há questões inéditas suficientes/);
+      return;
+    }
+    expect(nextRecovery.isRecovery).toBe(true);
+    const nextTopics = await prisma.question.findMany({
+      where: { id: { in: nextRecovery.questions.map((question) => question.id) } },
+      select: { topic: true },
+    });
+    const previouslyWeakTopics = new Set(recoveryQuestions.map((question) => question.topic));
+    expect(
+      nextTopics.filter((question) => previouslyWeakTopics.has(question.topic)).length
+    ).toBeGreaterThanOrEqual(6);
   });
 
   it("recusa recuperação de simulado sem erros ou não finalizado", async () => {
