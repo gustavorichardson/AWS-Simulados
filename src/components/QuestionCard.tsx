@@ -13,6 +13,7 @@ import {
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   HelpCircle,
   Bookmark,
   LayoutGrid,
@@ -103,6 +104,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showGridDrawer, setShowGridDrawer] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [reportCategory, setReportCategory] = useState<StudyFeedbackCategory | null>(null);
   const [issueLocation, setIssueLocation] =
     useState<FeedbackIssueLocation>("ENUNCIADO_INCORRETO");
@@ -113,6 +115,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   useEffect(() => {
+    setShowReport(false);
     setReportCategory(null);
     setIssueLocation("ENUNCIADO_INCORRETO");
     setReportedAnswer("");
@@ -464,65 +467,34 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           })}
         </div>
 
-        {mode === "ESTUDO" && (
-          feedback ? (
-            <section
-              role="status"
-              className={`mb-6 rounded-xl border p-4 ${
-                feedback.isCorrect
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-950"
-                  : "border-amber-200 bg-amber-50 text-amber-950"
-              }`}
-            >
-              <p className="font-bold">
-                {selectedOptionId === DONT_KNOW_OPTION_ID
-                  ? `Você marcou “Não sei”. A resposta correta é a alternativa ${
+        {mode === "ESTUDO" && feedback && (
+          <section
+            role="status"
+            className={`mb-6 rounded-xl border p-4 ${
+              feedback.isCorrect
+                ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+                : "border-amber-200 bg-amber-50 text-amber-950"
+            }`}
+          >
+            <p className="font-bold">
+              {selectedOptionId === DONT_KNOW_OPTION_ID
+                ? `Você marcou “Não sei”. A resposta correta é a alternativa ${
+                    optionLetters[question.options.findIndex((option) => option.id === feedback.correctOptionId)]
+                  }.`
+                : feedback.isCorrect
+                  ? "Resposta correta!"
+                  : `Resposta incorreta. A alternativa correta é ${
                       optionLetters[question.options.findIndex((option) => option.id === feedback.correctOptionId)]
-                    }.`
-                  : feedback.isCorrect
-                    ? "Resposta correta!"
-                    : `Resposta incorreta. A alternativa correta é ${
-                        optionLetters[question.options.findIndex((option) => option.id === feedback.correctOptionId)]
-                      }.`}
-              </p>
-              <p className="mt-2 text-sm leading-relaxed">
-                A justificativa de cada alternativa está identificada logo abaixo dela.
-              </p>
-            </section>
-          ) : (
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-4">
-              <p className="text-sm text-slate-600">
-                Escolha uma alternativa e confirme para ver a explicação.
-              </p>
-            </div>
-          )
+                    }.`}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed">
+              A justificativa de cada alternativa está identificada logo abaixo dela.
+            </p>
+          </section>
         )}
 
-        <div className="mb-6 flex flex-col items-end gap-3">
-          {mode === "ESTUDO" && !feedback && (
-            <button
-              type="button"
-              onClick={onConfirmStudyAnswer}
-              disabled={!selectedOptionId || isConfirmingAnswer}
-              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-all disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isConfirmingAnswer ? "Verificando..." : "Confirmar resposta"}
-            </button>
-          )}
-          {!isLast && (
-            <button
-              type="button"
-              onClick={onNext}
-              className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm transition-all shadow-sm flex items-center gap-1.5"
-            >
-              Próxima
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Controles de Navegação */}
-        <div className="mb-6 flex items-center justify-between border-t border-slate-100 pt-4">
+        {/* Barra única de navegação e ações */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-4">
           <button
             type="button"
             onClick={onPrevious}
@@ -533,17 +505,74 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             Anterior
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowConfirmModal(true)}
-            className="px-5 py-2.5 rounded-xl border border-slate-300 hover:border-slate-400 text-slate-800 font-bold text-sm transition-all shadow-xs"
-          >
-            Finalizar
-          </button>
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+            <p className="text-xs text-slate-500">
+              {mode === "ESTUDO"
+                ? feedback
+                  ? "Resposta registrada."
+                  : "Escolha uma alternativa e confirme para ver a explicação."
+                : "Escolha uma alternativa para continuar."}
+            </p>
+            {mode === "ESTUDO" && (
+              <button
+                type="button"
+                aria-expanded={showReport}
+                aria-controls={`report-panel-${question.id}`}
+                onClick={() => setShowReport((open) => !open)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+              >
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                Report question
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform duration-200 ${
+                    showReport ? "rotate-180" : ""
+                  }`}
+                  aria-hidden="true"
+                />
+              </button>
+            )}
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
+            {mode === "ESTUDO" && !feedback ? (
+              <button
+                type="button"
+                onClick={onConfirmStudyAnswer}
+                disabled={!selectedOptionId || isConfirmingAnswer}
+                className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-all disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isConfirmingAnswer ? "Verificando..." : "Confirmar resposta"}
+              </button>
+            ) : !isLast ? (
+              <button
+                type="button"
+                onClick={onNext}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm transition-all shadow-sm flex items-center gap-1.5"
+              >
+                Próxima
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setShowConfirmModal(true)}
+              className="px-4 py-2.5 rounded-xl border border-slate-300 hover:border-slate-400 text-slate-800 font-bold text-sm transition-all shadow-xs"
+            >
+              Finalizar
+            </button>
+          </div>
         </div>
 
         {mode === "ESTUDO" && (
-          <section className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <section
+            id={`report-panel-${question.id}`}
+            aria-hidden={!showReport}
+            inert={!showReport}
+            className={`grid transition-[grid-template-rows,opacity] duration-300 motion-reduce:transition-none ${
+              showReport ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+            }`}
+          >
+          <div className="min-h-0 overflow-hidden mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <h3 className="text-sm font-bold text-slate-800">Reportar problema nesta questão</h3>
             <p className="mt-1 text-xs text-slate-500">
               Reports únicos passam por triagem técnica antes de orientar gerações futuras. O report não altera sua resposta ou pontuação.
@@ -680,6 +709,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 )}
               </div>
             </div>
+          </div>
           </section>
         )}
 

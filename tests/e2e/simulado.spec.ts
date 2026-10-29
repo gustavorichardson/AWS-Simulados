@@ -143,17 +143,26 @@ test("Modo Estudo: revisão detalhada com explicações; isolamento entre contas
   await signUp(page, "Aluno Estudo", `estudo.${stamp}@teste.local`);
   const exam = await startExam(page, "estudo");
   const confirmButton = await page.getByRole("button", { name: "Confirmar resposta" }).boundingBox();
-  const nextButton = await page.getByRole("button", { name: "Próxima" }).boundingBox();
   const finishButton = await page.getByRole("button", { name: "Finalizar", exact: true }).boundingBox();
-  const reportHeading = await page.getByRole("heading", {
+  const reportHeading = page.getByRole("heading", {
     name: "Reportar problema nesta questão",
-  }).boundingBox();
+  });
   expect(confirmButton).not.toBeNull();
-  expect(nextButton).not.toBeNull();
   expect(finishButton).not.toBeNull();
-  expect(reportHeading).not.toBeNull();
-  expect(nextButton!.y).toBeGreaterThan(confirmButton!.y);
-  expect(reportHeading!.y).toBeGreaterThan(finishButton!.y);
+  await expect(reportHeading).toBeHidden();
+  expect(Math.abs(confirmButton!.y - finishButton!.y)).toBeLessThan(2);
+  await expect(page.getByRole("button", { name: /Report question/ })).toHaveAttribute(
+    "aria-expanded",
+    "false"
+  );
+  await page.getByRole("button", { name: /Report question/ }).click();
+  await expect(page.getByRole("button", { name: /Report question/ })).toHaveAttribute(
+    "aria-expanded",
+    "true"
+  );
+  await expect(
+    page.getByRole("heading", { name: "Reportar problema nesta questão" })
+  ).toBeVisible();
 
   const unknownOption = page.getByRole("checkbox", {
     name: /Não conheço o significado da alternativa A/,
@@ -238,6 +247,14 @@ test("Modo Estudo: revisão detalhada com explicações; isolamento entre contas
   });
   expect(biasedPayload).not.toHaveProperty("issueLocation");
   expect(biasedPayload).not.toHaveProperty("difficultyDirection");
+  await page.getByRole("button", { name: /Report question/ }).click();
+  await expect(page.getByRole("button", { name: /Report question/ })).toHaveAttribute(
+    "aria-expanded",
+    "false"
+  );
+  await expect(
+    page.getByRole("heading", { name: "Reportar problema nesta questão" })
+  ).toBeHidden();
 
   await page.getByRole("button", { name: "Não sei" }).click();
   await Promise.all([
@@ -248,6 +265,14 @@ test("Modo Estudo: revisão detalhada com explicações; isolamento entre contas
     page.locator('[role="status"]').filter({ hasText: /Alternativa [A-D] —/ }).first()
   ).toContainText(/Alternativa [A-D] — (correta|incorreta)/);
   await expect(page.getByRole("button", { name: "Confirmar resposta" })).toHaveCount(0);
+  const nextAfterAnswer = await page.getByRole("button", { name: "Próxima" }).boundingBox();
+  const finishAfterAnswer = await page.getByRole("button", {
+    name: "Finalizar",
+    exact: true,
+  }).boundingBox();
+  expect(nextAfterAnswer).not.toBeNull();
+  expect(finishAfterAnswer).not.toBeNull();
+  expect(Math.abs(nextAfterAnswer!.y - finishAfterAnswer!.y)).toBeLessThan(2);
   const data = await finish(page);
   expect(data.result.detailedAnswers).toHaveLength(15);
   expect(data.result.unknownOptions).toHaveLength(1);
