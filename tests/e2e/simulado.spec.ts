@@ -142,6 +142,19 @@ test("Modo Prova: sem pistas durante a prova e sem gabarito/explicação no resu
 test("Modo Estudo: revisão detalhada com explicações; isolamento entre contas", async ({ page, browser }) => {
   await signUp(page, "Aluno Estudo", `estudo.${stamp}@teste.local`);
   const exam = await startExam(page, "estudo");
+  const confirmButton = await page.getByRole("button", { name: "Confirmar resposta" }).boundingBox();
+  const nextButton = await page.getByRole("button", { name: "Próxima" }).boundingBox();
+  const finishButton = await page.getByRole("button", { name: "Finalizar", exact: true }).boundingBox();
+  const reportHeading = await page.getByRole("heading", {
+    name: "Reportar problema nesta questão",
+  }).boundingBox();
+  expect(confirmButton).not.toBeNull();
+  expect(nextButton).not.toBeNull();
+  expect(finishButton).not.toBeNull();
+  expect(reportHeading).not.toBeNull();
+  expect(nextButton!.y).toBeGreaterThan(confirmButton!.y);
+  expect(reportHeading!.y).toBeGreaterThan(finishButton!.y);
+
   const unknownOption = page.getByRole("checkbox", {
     name: /Não conheço o significado da alternativa A/,
   }).first();

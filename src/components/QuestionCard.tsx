@@ -494,17 +494,53 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               <p className="text-sm text-slate-600">
                 Escolha uma alternativa e confirme para ver a explicação.
               </p>
-              <button
-                type="button"
-                onClick={onConfirmStudyAnswer}
-                disabled={!selectedOptionId || isConfirmingAnswer}
-                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-all disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isConfirmingAnswer ? "Verificando..." : "Confirmar resposta"}
-              </button>
             </div>
           )
         )}
+
+        <div className="mb-6 flex flex-col items-end gap-3">
+          {mode === "ESTUDO" && !feedback && (
+            <button
+              type="button"
+              onClick={onConfirmStudyAnswer}
+              disabled={!selectedOptionId || isConfirmingAnswer}
+              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-all disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isConfirmingAnswer ? "Verificando..." : "Confirmar resposta"}
+            </button>
+          )}
+          {!isLast && (
+            <button
+              type="button"
+              onClick={onNext}
+              className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm transition-all shadow-sm flex items-center gap-1.5"
+            >
+              Próxima
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Controles de Navegação */}
+        <div className="mb-6 flex items-center justify-between border-t border-slate-100 pt-4">
+          <button
+            type="button"
+            onClick={onPrevious}
+            disabled={isFirst}
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Anterior
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowConfirmModal(true)}
+            className="px-5 py-2.5 rounded-xl border border-slate-300 hover:border-slate-400 text-slate-800 font-bold text-sm transition-all shadow-xs"
+          >
+            Finalizar
+          </button>
+        </div>
 
         {mode === "ESTUDO" && (
           <section className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -647,39 +683,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </section>
         )}
 
-        {/* Controles de Navegação */}
-        <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-          <button
-            type="button"
-            onClick={onPrevious}
-            disabled={isFirst}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1.5"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Anterior
-          </button>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowConfirmModal(true)}
-              className="px-5 py-2.5 rounded-xl border border-slate-300 hover:border-slate-400 text-slate-800 font-bold text-sm transition-all shadow-xs"
-            >
-              Finalizar
-            </button>
-
-            {!isLast && (
-              <button
-                type="button"
-                onClick={onNext}
-                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm transition-all shadow-sm flex items-center gap-1.5"
-              >
-                Próxima
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Modal de Confirmação de Finalização */}
