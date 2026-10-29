@@ -20,6 +20,11 @@ async function signUp(page: Page) {
 }
 
 test("usuário comum recebe 404 no painel e nas APIs administrativas", async ({ page }) => {
+  const anonymousApiResponse = await page.request.get("/api/admin/feedback/relatorio");
+  expect(anonymousApiResponse.status()).toBe(404);
+  const anonymousPageResponse = await page.goto("/admin");
+  expect(anonymousPageResponse?.status()).toBe(404);
+
   await signUp(page);
 
   const apiResponse = await page.request.get("/api/admin/feedback/relatorio");

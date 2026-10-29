@@ -78,7 +78,13 @@ test("visitante sem login é enviado para a página de login e as APIs recusam a
 });
 
 test("tema pode ser escolhido como claro, escuro ou conforme o sistema", async ({ page }) => {
-  await page.goto("/login");
+  const response = await page.goto("/login");
+  expect(response?.headers()["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(response?.headers()["content-security-policy"]).toContain("script-src-attr 'none'");
+  expect(response?.headers()["content-security-policy"]).not.toContain("'unsafe-eval'");
+  expect(response?.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(response?.headers()["x-frame-options"]).toBe("DENY");
+  expect(response?.headers()["referrer-policy"]).toBe("strict-origin-when-cross-origin");
   const selector = page.getByLabel("Tema de exibição");
 
   await expect(selector).toHaveValue("system");
