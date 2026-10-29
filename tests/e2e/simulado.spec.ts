@@ -124,6 +124,33 @@ test("Modo Prova: sem pistas durante a prova e sem gabarito/explicação no resu
 test("Modo Estudo: revisão detalhada com explicações; isolamento entre contas", async ({ page, browser }) => {
   await signUp(page, "Aluno Estudo", `estudo.${stamp}@teste.local`);
   const exam = await startExam(page, "estudo");
+  const unknownOption = page.getByRole("checkbox", {
+    name: /Não conheço o significado da alternativa A/,
+  }).first();
+  const [unknownResponse] = await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().includes("/api/simulados/") && response.url().includes("/progresso")
+    ),
+    unknownOption.check(),
+  ]);
+  expect(unknownResponse.status()).toBe(200);
+
+  const [repeatedFeedbackResponse] = await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().includes("/api/simulados/") && response.url().endsWith("/feedback")
+    ),
+    page.getByRole("button", { name: "Questão repetida" }).click(),
+  ]);
+  expect(repeatedFeedbackResponse.status()).toBe(200);
+  await page.getByRole("button", { name: "Dificuldade incorreta" }).click();
+  const [difficultyFeedbackResponse] = await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().includes("/api/simulados/") && response.url().endsWith("/feedback")
+    ),
+    page.getByRole("radio", { name: "Mais difícil do que deveria" }).click(),
+  ]);
+  expect(difficultyFeedbackResponse.status()).toBe(200);
+
   await page.getByRole("button", { name: "Não sei" }).click();
   await Promise.all([
     page.waitForResponse((response) => response.url().includes("/api/simulados/") && response.url().includes("/progresso")),
@@ -135,6 +162,10 @@ test("Modo Estudo: revisão detalhada com explicações; isolamento entre contas
   await expect(page.getByRole("button", { name: "Confirmar resposta" })).toHaveCount(0);
   const data = await finish(page);
   expect(data.result.detailedAnswers).toHaveLength(15);
+  expect(data.result.unknownOptions).toHaveLength(1);
+  await expect(
+    page.getByRole("heading", { name: "Alternativas cujo significado você não conhece" })
+  ).toBeVisible();
 
   const review = page.getByTestId("revisao-detalhada");
   await expect(review).toBeVisible();
