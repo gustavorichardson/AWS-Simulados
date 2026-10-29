@@ -109,6 +109,18 @@ export function FeedbackLearningReport() {
     PIORANDO: "Sinais de piora",
     DADOS_INSUFICIENTES: "Dados insuficientes para concluir",
   };
+  const summaryCards: Array<{
+    label: string;
+    count: number;
+    color: string;
+    icon: typeof Database;
+  }> = [
+    { label: "Recebidos", count: report.totals.received, color: "text-slate-900", icon: Database },
+    { label: "Usados na geração", count: report.totals.appliedInGeneration, color: "text-sky-800", icon: Sparkles },
+    { label: "Pendentes", count: report.totals.pending, color: "text-amber-800", icon: Clock3 },
+    { label: "Correções implementadas", count: report.totals.correctionsImplemented, color: "text-indigo-800", icon: Activity },
+    { label: "Resolvidos com evidência", count: report.totals.resolvedWithEvidence, color: "text-emerald-800", icon: CheckCircle2 },
+  ];
 
   return (
     <section className="space-y-4">
@@ -129,16 +141,9 @@ export function FeedbackLearningReport() {
         </div>
 
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-          {[
-            ["Recebidos", report.totals.received, "text-slate-900", Database],
-            ["Usados na geração", report.totals.appliedInGeneration, "text-sky-800", Sparkles],
-            ["Pendentes", report.totals.pending, "text-amber-800", Clock3],
-            ["Correções implementadas", report.totals.correctionsImplemented, "text-indigo-800", Activity],
-            ["Resolvidos com evidência", report.totals.resolvedWithEvidence, "text-emerald-800", CheckCircle2],
-          ].map(([label, count, color, Icon]) => {
-            const MetricIcon = Icon;
+          {summaryCards.map(({ label, count, color, icon: MetricIcon }) => {
             return (
-              <div key={String(label)} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
                   <MetricIcon className="h-3.5 w-3.5" />
                   {label}

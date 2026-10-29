@@ -3,6 +3,7 @@ import {
   RawGeminiQuestionSchema,
   computeStemHash,
   hasHardAnswerContext,
+  matchesDifficultyShape,
   buildQuestionPrompt,
   isDuplicateQuestion,
   generateQuestionsWithGemini,
@@ -116,9 +117,48 @@ describe("Integração Gemini API (Server-Side) e Validação Estruturada com Zo
 
     expect(easyPrompt).toContain("REGRA DE ESCOPO INEGOCIÁVEL");
     expect(easyPrompt).toContain("NUNCA ultrapasse esse nível");
-    expect(easyPrompt).toContain("contexto curto e familiar");
-    expect(hardPrompt).toContain("limite máximo Cloud Practitioner");
-    expect(hardPrompt).toContain("somente o nome cru");
+    expect(easyPrompt).toContain("enunciado curto, intuitivo");
+    expect(hardPrompt).toContain("enunciado longo e elaborado");
+    expect(hardPrompt).toContain("Alternativas diretas e curtas");
+  });
+
+  it("aplica estruturas diferentes às dificuldades e rejeita contexto nas alternativas médias/difíceis", () => {
+    const shortStem = "Qual serviço gerencia permissões e credenciais na AWS?";
+    const mediumStem =
+      "Uma empresa precisa organizar permissões temporárias para workloads de várias contas e evitar credenciais permanentes. Qual serviço ou recurso atende a esse requisito com menor privilégio?";
+    const hardStem =
+      "Uma organização com múltiplas unidades precisa permitir que aplicações hospedadas em contas distintas obtenham acesso temporário a recursos compartilhados. O desenho deve evitar credenciais permanentes, permitir auditoria centralizada e reduzir o acoplamento entre as equipes operacionais de segurança. Qual recurso atende melhor a esse conjunto de requisitos?";
+    const directOptions = [
+      { text: "AWS IAM" },
+      { text: "AWS CloudTrail" },
+      { text: "AWS Organizations" },
+      { text: "AWS KMS" },
+    ];
+
+    expect(matchesDifficultyShape(shortStem, directOptions, "EASY")).toBe(true);
+    expect(matchesDifficultyShape(mediumStem, directOptions, "MEDIUM")).toBe(true);
+    expect(
+      matchesDifficultyShape(mediumStem, [{ text: "AWS IAM fornece permissões temporárias." }, ...directOptions.slice(1)], "MEDIUM")
+    ).toBe(false);
+    expect(matchesDifficultyShape(hardStem, directOptions, "HARD")).toBe(true);
+    expect(matchesDifficultyShape(shortStem, directOptions, "HARD")).toBe(false);
+  });
+
+  it("inclui sinais de feedback nos prompts sem afirmar treinamento automático", () => {
+    const prompt = buildQuestionPrompt({
+      count: 1,
+      difficulty: "MEDIUM",
+      feedbackSignals: [
+        {
+          category: "DIFICULDADE_INCORRETA",
+          difficulty: "MEDIUM",
+          direction: "MAIS_FACIL",
+          topic: "Amazon S3",
+        },
+      ],
+    });
+    expect(prompt).toContain("estava fácil demais");
+    expect(prompt).toContain("não altera nem treina automaticamente o modelo");
   });
 
   it("deve calcular o hash normalizado ignorando maiúsculas, acentos e pontuação (Deduplicação)", () => {

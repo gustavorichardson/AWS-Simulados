@@ -27,6 +27,7 @@ import {
   QuestionPublicView,
   StudyFeedback,
   UnknownOptionSelection,
+  StudyQuestionFeedbackState,
   QUESTION_DIFFICULTIES,
   VALID_QUESTION_COUNTS,
 } from "../types/exam";
@@ -309,6 +310,25 @@ export async function getAttemptForUser(userId: string, attemptId: string) {
   }
   const answers: Record<string, string> = {};
   for (const a of attempt.answers) if (a.selectedOptionId) answers[a.questionId] = a.selectedOptionId;
+  const questionFeedback: Record<string, StudyQuestionFeedbackState> = {};
+  for (const item of attempt.feedback) {
+    if (
+      item.category !== "ERRADA" &&
+      item.category !== "REPETIDA" &&
+      item.category !== "DIFICULDADE_INCORRETA"
+    ) {
+      continue;
+    }
+    const state = questionFeedback[item.questionId] ?? {};
+    if (item.category === "DIFICULDADE_INCORRETA") {
+      if (item.difficultyDirection === "MAIS_FACIL" || item.difficultyDirection === "MAIS_DIFICIL") {
+        state[item.category] = item.difficultyDirection;
+      }
+    } else {
+      state[item.category] = true;
+    }
+    questionFeedback[item.questionId] = state;
+  }
   return {
     attemptId: attempt.id,
     mode: attempt.mode as ExamMode,
@@ -323,15 +343,7 @@ export async function getAttemptForUser(userId: string, attemptId: string) {
           unknownOptions: Object.fromEntries(
             attempt.answers.map((answer) => [answer.questionId, answer.unknownOptionIds])
           ),
-          questionFeedback: Object.fromEntries(
-            attempt.feedback.map((feedback) => [
-              feedback.questionId,
-              {
-                category: feedback.category,
-                difficultyDirection: feedback.difficultyDirection,
-              },
-            ])
-          ),
+          questionFeedback,
         }
       : {}),
   };

@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import type { Prisma } from "@prisma/client";
 import {
   calculateFeedbackCategoryMetrics,
   classifyQualityTrend,
@@ -208,10 +209,11 @@ export async function getFeedbackReport() {
   };
 
   const date = utcDay(now);
+  const snapshotMetrics = JSON.parse(JSON.stringify(report)) as Prisma.InputJsonValue;
   await prisma.feedbackMetricSnapshot.upsert({
     where: { date },
-    create: { date, metrics: report },
-    update: { metrics: report },
+    create: { date, metrics: snapshotMetrics },
+    update: { metrics: snapshotMetrics },
   });
   const history = await prisma.feedbackMetricSnapshot.findMany({
     orderBy: { date: "desc" },

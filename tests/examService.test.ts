@@ -6,6 +6,7 @@ import {
   getAttemptForUser,
   getResult,
   saveProgress,
+  saveQuestionFeedback,
   startExam,
   startRecoveryExam,
 } from "../src/lib/exam-service";
@@ -148,6 +149,7 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
       selectedTopics: ["Domínio 2: Segurança e Conformidade"],
       selectedSubtopics: [TEST_TOPIC],
     });
+
     const questionId = started.questions[0].id;
     const beforeAnswer = await getAttemptForUser(studyUser, started.attemptId);
     expect(beforeAnswer.finished).toBe(false);
@@ -177,6 +179,76 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
     const correctOptionId = feedback!.correctOptionId;
     await expectServiceError(
       saveProgress(studyUser, started.attemptId, { [questionId]: correctOptionId }),
+      409
+    );
+  });
+
+  it("persiste alternativas desconhecidas e feedback sem alterar resposta ou pontuação", async () => {
+    const started = await startExam(userA, {
+      questionCount: 15,
+      mode: "ESTUDO",
+      selectedTopics: ["Domínio 2: Segurança e Conformidade"],
+      selectedSubtopics: [TEST_TOPIC],
+    });
+    const questionId = started.questions[0].id;
+    const question = await prisma.question.findUniqueOrThrow({ where: { id: questionId } });
+    const correctOptionId = question.correctOptionId;
+    const unknownOptionId = ["opt_a", "opt_b", "opt_c", "opt_d"].find(
+      (optionId) => optionId !== correctOptionId
+    )!;
+
+    await saveProgress(
+      userA,
+      started.attemptId,
+      { [questionId]: correctOptionId },
+      { [questionId]: [unknownOptionId] }
+    );
+    await saveQuestionFeedback(userA, started.attemptId, {
+      questionId,
+      category: "ERRADA",
+      active: true,
+    });
+    await saveQuestionFeedback(userA, started.attemptId, {
+      questionId,
+      category: "DIFICULDADE_INCORRETA",
+      active: true,
+      difficultyDirection: "MAIS_DIFICIL",
+    });
+
+    const resumed = await getAttemptForUser(userA, started.attemptId);
+    expect(resumed.finished).toBe(false);
+    if (resumed.finished) return;
+    expect(resumed.unknownOptions?.[questionId]).toEqual([unknownOptionId]);
+    expect(resumed.questionFeedback?.[questionId]).toMatchObject({
+      ERRADA: true,
+      DIFICULDADE_INCORRETA: "MAIS_DIFICIL",
+    });
+    expect(
+      await prisma.questionFeedback.findFirstOrThrow({
+        where: {
+          attemptId: started.attemptId,
+          questionId,
+          category: "DIFICULDADE_INCORRETA",
+        },
+      })
+    ).toMatchObject({ difficultyDirection: "MAIS_DIFICIL", topic: TEST_TOPIC });
+
+    const result = await finishExam(userA, started.attemptId, { [questionId]: correctOptionId });
+    expect(result.correctCount).toBe(1);
+    expect(result.unknownOptions).toEqual([
+      expect.objectContaining({
+        questionId,
+        topic: TEST_TOPIC,
+        optionId: unknownOptionId,
+      }),
+    ]);
+
+    await expectServiceError(
+      saveQuestionFeedback(userA, started.attemptId, {
+        questionId,
+        category: "REPETIDA",
+        active: true,
+      }),
       409
     );
   });
@@ -254,19 +326,31 @@ describe("Simulado de recuperação", () => {
     expect(recovery.mode).toBe("ESTUDO");
     const firstIds = new Set(first.questions.map((q) => q.id));
     recovery.questions.forEach((q) => expect(firstIds.has(q.id)).toBe(false));
-    const topics = await prisma.question.findMany({
+    const recoveryQuestions = await prisma.question.findMany({
       where: { id: { in: recovery.questions.map((q) => q.id) } },
-      select: { topic: true },
+      select: { topic: true, domain: true },
     });
-    topics.forEach((t) => expect(t.topic).toBe(TEST_TOPIC));
+    expect(recoveryQuestions.filter((question) => question.topic === TEST_TOPIC).length).toBeGreaterThanOrEqual(6);
+    expect(recoveryQuestions.some((question) => question.topic !== TEST_TOPIC)).toBe(true);
+    recoveryQuestions.forEach((question) =>
+      expect(question.domain).toBe("Domínio 2: Segurança e Conformidade")
+    );
     const attempt = await prisma.examAttempt.findUniqueOrThrow({ where: { id: recovery.attemptId } });
     expect(attempt.sourceAttemptId).toBe(first.attemptId);
 
-    // Banco do tópico esgotado: a recuperação recusa em vez de repetir questões
+    // A próxima recuperação permanece restrita aos tópicos que voltaram a apresentar erro.
     const all: Record<string, string> = {};
     for (const q of recovery.questions) all[q.id] = DONT_KNOW_OPTION_ID;
-    await finishExam(user, recovery.attemptId, all);
-    await expectServiceError(startRecoveryExam(user, recovery.attemptId), 409);
+    const recoveryResult = await finishExam(user, recovery.attemptId, all);
+    const nextRecovery = await startRecoveryExam(user, recovery.attemptId);
+    expect(nextRecovery.isRecovery).toBe(true);
+    const nextQuestions = await prisma.question.findMany({
+      where: { id: { in: nextRecovery.questions.map((question) => question.id) } },
+      select: { topic: true },
+    });
+    nextQuestions.forEach((question) =>
+      expect(recoveryResult.recoveryTopics).toContain(question.topic)
+    );
   });
 
   it("recusa recuperação de simulado sem erros ou não finalizado", async () => {
