@@ -12,8 +12,8 @@ import {
 // Mock da SDK do Google GenAI para evitar chamadas de rede nos testes automatizados
 vi.mock("@google/genai", () => {
   return {
-    GoogleGenAI: vi.fn().mockImplementation(() => ({
-      models: {
+    GoogleGenAI: class {
+      models = {
         generateContent: vi.fn().mockResolvedValue({
           text: JSON.stringify([
             {
@@ -37,8 +37,8 @@ vi.mock("@google/genai", () => {
             },
           ]),
         }),
-      },
-    })),
+      };
+    },
     Type: {
       ARRAY: "array",
       OBJECT: "object",

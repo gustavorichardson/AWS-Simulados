@@ -264,7 +264,7 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
     expect(result.unknownOptions).toEqual([
       expect.objectContaining({
         questionId,
-        topic: TEST_TOPIC,
+        topic: question.topic,
         optionId: unknownOptionId,
       }),
     ]);

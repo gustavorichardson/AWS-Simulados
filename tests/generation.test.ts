@@ -50,6 +50,10 @@ vi.mock("../src/lib/gemini", async (importOriginal) => {
   };
 });
 
+vi.mock("../src/lib/feedback-triage", () => ({
+  triagePendingFeedback: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { prisma } from "../src/lib/prisma";
 import {
   InsufficientQuestionsError,
