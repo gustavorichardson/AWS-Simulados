@@ -11,6 +11,9 @@ import {
   QuestionPublicView,
   QuestionDifficulty,
   StudyFeedback,
+  StudyQuestionFeedbackState,
+  StudyFeedbackCategory,
+  DifficultyDirection,
   ValidQuestionCount,
 } from "../types/exam";
 import { SelectionState, createInitialSelection, ALL_DOMAINS_KEY } from "../lib/topic-selection";
@@ -65,6 +68,10 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [studyFeedback, setStudyFeedback] = useState<Record<string, StudyFeedback>>({});
+  const [unknownOptions, setUnknownOptions] = useState<Record<string, string[]>>({});
+  const [questionFeedback, setQuestionFeedback] = useState<
+    Record<string, StudyQuestionFeedbackState>
+  >({});
   const [isConfirmingAnswer, setIsConfirmingAnswer] = useState(false);
   const [markedForReview, setMarkedForReview] = useState<Record<string, boolean>>({});
 
@@ -75,6 +82,8 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
 
   const pendingAnswers = useRef<Record<string, string>>({});
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const unknownSaveQueue = useRef<Promise<void>>(Promise.resolve());
+  const unknownOptionsRef = useRef(unknownOptions);
 
   const showResult = useCallback(async (id: string) => {
     const data = await requestJson<{ result: ExamResultView }>(`/api/simulados/${id}/resultado`);
@@ -95,6 +104,8 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
             questions: QuestionPublicView[];
             answers: Record<string, string>;
             studyFeedback?: Record<string, StudyFeedback>;
+            unknownOptions?: Record<string, string[]>;
+            questionFeedback?: Record<string, StudyQuestionFeedbackState>;
           }
       >(`/api/simulados/${id}`);
       if (data.finished) {
@@ -108,6 +119,9 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
       setQuestions(data.questions);
       setAnswers(data.answers);
       setStudyFeedback(data.studyFeedback ?? {});
+      setUnknownOptions(data.unknownOptions ?? {});
+      unknownOptionsRef.current = data.unknownOptions ?? {};
+      setQuestionFeedback(data.questionFeedback ?? {});
       setMarkedForReview(ui?.markedForReview ?? {});
       setCurrentIndex(Math.min(ui?.currentIndex ?? 0, data.questions.length - 1));
       setView("exam");
@@ -163,6 +177,9 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
     setCurrentIndex(0);
     setAnswers({});
     setStudyFeedback({});
+    setUnknownOptions({});
+    unknownOptionsRef.current = {};
+    setQuestionFeedback({});
     setIsConfirmingAnswer(false);
     setMarkedForReview({});
     setExamResult(null);
@@ -236,12 +253,68 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
     setMarkedForReview((prev) => ({ ...prev, [questionId]: !prev[questionId] }));
   };
 
+  const handleToggleUnknownOption = (questionId: string, optionId: string) => {
+    if (!attemptId) return;
+    const next = new Set(unknownOptionsRef.current[questionId] ?? []);
+    if (next.has(optionId)) next.delete(optionId);
+    else next.add(optionId);
+    const values = [...next];
+    const nextState = { ...unknownOptionsRef.current, [questionId]: values };
+    unknownOptionsRef.current = nextState;
+    setUnknownOptions(nextState);
+    setApiError(null);
+    unknownSaveQueue.current = unknownSaveQueue.current
+      .catch(() => undefined)
+      .then(async () => {
+        await requestJson(`/api/simulados/${attemptId}/progresso`, {
+          method: "PATCH",
+          body: JSON.stringify({ unknownOptions: { [questionId]: values } }),
+        });
+      })
+      .catch((error) => {
+        setApiError(error instanceof Error ? error.message : "Não foi possível salvar as marcações.");
+      });
+  };
+
+  const handleQuestionFeedback = async (
+    questionId: string,
+    category: StudyFeedbackCategory,
+    active: boolean,
+    difficultyDirection?: DifficultyDirection
+  ) => {
+    if (!attemptId) return;
+    setApiError(null);
+    try {
+      await requestJson(`/api/simulados/${attemptId}/feedback`, {
+        method: "POST",
+        body: JSON.stringify({ questionId, category, active, difficultyDirection }),
+      });
+      setQuestionFeedback((previous) => {
+        const next = { ...previous[questionId] };
+        if (!active) delete next[category];
+        else next[category] = category === "DIFICULDADE_INCORRETA"
+          ? difficultyDirection ?? "MAIS_FACIL"
+          : true;
+        return { ...previous, [questionId]: next };
+      });
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : "Não foi possível salvar o feedback.");
+    }
+  };
+
   const handleFinishExam = async () => {
     if (!attemptId) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     setIsSubmitting(true);
     setApiError(null);
     try {
+      if (examMode === "ESTUDO" && Object.keys(unknownOptions).length > 0) {
+        await unknownSaveQueue.current;
+        await requestJson(`/api/simulados/${attemptId}/progresso`, {
+          method: "PATCH",
+          body: JSON.stringify({ unknownOptions }),
+        });
+      }
       const data = await requestJson<{ result: ExamResultView }>(
         `/api/simulados/${attemptId}/finalizar`,
         {
@@ -274,6 +347,10 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
     setQuestions([]);
     setAnswers({});
     setStudyFeedback({});
+    setUnknownOptions({});
+    unknownOptionsRef.current = {};
+    unknownOptionsRef.current = {};
+    setQuestionFeedback({});
     setIsConfirmingAnswer(false);
     setMarkedForReview({});
     setExamResult(null);
@@ -356,10 +433,14 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
             allQuestions={questions}
             answers={answers}
             studyFeedback={studyFeedback}
+            unknownOptions={unknownOptions}
+            questionFeedback={questionFeedback}
             isConfirmingAnswer={isConfirmingAnswer}
             markedForReview={markedForReview}
             onSelectOption={handleSelectOption}
             onConfirmStudyAnswer={handleConfirmStudyAnswer}
+            onToggleUnknownOption={handleToggleUnknownOption}
+            onQuestionFeedback={handleQuestionFeedback}
             onToggleReview={handleToggleReview}
             onJumpToQuestion={(idx) => setCurrentIndex(idx)}
             onPrevious={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}

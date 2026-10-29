@@ -12,6 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { DashboardClientControls } from "./DashboardClientControls";
+import { FeedbackLearningReport } from "@/components/FeedbackLearningReport";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +123,10 @@ export default async function DashboardPage() {
             <div className="text-3xl font-black text-slate-900">{averageScore}%</div>
             <div className="text-xs text-slate-500 mt-1">Média ponderada de acertos</div>
           </div>
+        </div>
+
+        <div className="mb-8">
+          <FeedbackLearningReport />
         </div>
 
         {/* Histórico Recente de Simulados */}

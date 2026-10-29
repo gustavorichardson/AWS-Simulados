@@ -17,12 +17,14 @@ CREATE TABLE "question_feedback" (
     CONSTRAINT "question_feedback_pkey" PRIMARY KEY ("id")
 );
 
-CREATE TABLE "feedback_generation_usages" (
+CREATE TABLE "feedback_prompt_uses" (
     "id" TEXT NOT NULL,
     "feedbackId" TEXT NOT NULL,
-    "generatedQuestionId" TEXT NOT NULL,
+    "generationId" TEXT NOT NULL,
+    "generatedQuestionIds" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
     "usedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "feedback_generation_usages_pkey" PRIMARY KEY ("id")
+    "implementedAt" TIMESTAMP(3),
+    CONSTRAINT "feedback_prompt_uses_pkey" PRIMARY KEY ("id")
 );
 
 CREATE TABLE "feedback_metric_snapshots" (
@@ -38,10 +40,9 @@ ON "question_feedback"("attemptId", "questionId", "category");
 CREATE INDEX "question_feedback_domain_topic_category_createdAt_idx"
 ON "question_feedback"("domain", "topic", "category", "createdAt");
 CREATE INDEX "question_feedback_usedAt_idx" ON "question_feedback"("usedAt");
-CREATE UNIQUE INDEX "feedback_generation_usages_feedbackId_generatedQuestionId_key"
-ON "feedback_generation_usages"("feedbackId", "generatedQuestionId");
-CREATE INDEX "feedback_generation_usages_generatedQuestionId_usedAt_idx"
-ON "feedback_generation_usages"("generatedQuestionId", "usedAt");
+CREATE UNIQUE INDEX "feedback_prompt_uses_feedbackId_generationId_key"
+ON "feedback_prompt_uses"("feedbackId", "generationId");
+CREATE INDEX "feedback_prompt_uses_usedAt_idx" ON "feedback_prompt_uses"("usedAt");
 CREATE UNIQUE INDEX "feedback_metric_snapshots_date_key" ON "feedback_metric_snapshots"("date");
 
 ALTER TABLE "question_feedback"
@@ -53,9 +54,6 @@ FOREIGN KEY ("attemptId") REFERENCES "exam_attempts"("id") ON DELETE CASCADE ON 
 ALTER TABLE "question_feedback"
 ADD CONSTRAINT "question_feedback_questionId_fkey"
 FOREIGN KEY ("questionId") REFERENCES "questions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "feedback_generation_usages"
-ADD CONSTRAINT "feedback_generation_usages_feedbackId_fkey"
+ALTER TABLE "feedback_prompt_uses"
+ADD CONSTRAINT "feedback_prompt_uses_feedbackId_fkey"
 FOREIGN KEY ("feedbackId") REFERENCES "question_feedback"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "feedback_generation_usages"
-ADD CONSTRAINT "feedback_generation_usages_generatedQuestionId_fkey"
-FOREIGN KEY ("generatedQuestionId") REFERENCES "questions"("id") ON DELETE CASCADE ON UPDATE CASCADE;

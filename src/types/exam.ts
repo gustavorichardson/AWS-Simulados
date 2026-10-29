@@ -80,6 +80,9 @@ export interface QuestionInternal {
 export type AnswerStatus = "CORRETA" | "ERRADA" | "NAO_SEI" | "NAO_RESPONDIDA";
 export type StudyFeedbackCategory = "ERRADA" | "REPETIDA" | "DIFICULDADE_INCORRETA";
 export type DifficultyDirection = "MAIS_FACIL" | "MAIS_DIFICIL";
+export type StudyQuestionFeedbackState = Partial<
+  Record<StudyFeedbackCategory, true | DifficultyDirection>
+>;
 
 export interface UnknownOptionSelection {
   questionId: string;

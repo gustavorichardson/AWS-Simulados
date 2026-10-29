@@ -193,6 +193,43 @@ export const ExamSummary: React.FC<ExamSummaryProps> = ({
       </div>
 
       {/* 4. Desempenho por Tópico */}
+      {result.mode === "ESTUDO" && (
+        <section className="bg-white p-6 rounded-2xl border border-sky-200 shadow-xs">
+          <h3 className="text-base font-bold text-slate-900">Alternativas cujo significado você não conhece</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Estas marcações são independentes da resposta e não alteram sua pontuação.
+          </p>
+          {result.unknownOptions?.length ? (
+            <ul className="mt-4 space-y-3">
+              {result.unknownOptions.map((item, index) => {
+                const question = result.detailedAnswers?.find(
+                  (answer) => answer.questionId === item.questionId
+                );
+                return (
+                  <li
+                    key={`${item.questionId}-${item.optionId}`}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <p className="text-xs font-bold text-sky-900">
+                      {index + 1}. {item.topic} · {item.domain}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-slate-800">{item.optionText}</p>
+                    {question && (
+                      <p className="mt-1 text-xs text-slate-500">{question.stem}</p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+              Nenhuma alternativa foi marcada como desconhecida neste simulado.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* 4. Desempenho por Tópico */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs" data-testid="desempenho-topicos">
         <h3 className="text-base font-bold text-slate-900 mb-4">Desempenho por Tópico</h3>
         <div className="overflow-x-auto">

@@ -115,6 +115,29 @@ export function hasHardAnswerContext(text: string): boolean {
   );
 }
 
+function hasExplanatoryOptionContext(text: string): boolean {
+  const words = text.trim().split(/\s+/);
+  return (
+    words.length > 7 ||
+    /[,;:!?()]|\b(?:permite|oferece|fornece|serviço de|servico de|usado para|ideal para|responsável por|responsavel por)\b/i.test(
+      text
+    )
+  );
+}
+
+export function matchesDifficultyShape(
+  stem: string,
+  options: Array<{ text: string }>,
+  difficulty: QuestionDifficulty
+): boolean {
+  const wordCount = stem.trim().split(/\s+/).length;
+  if (difficulty === "EASY") return wordCount <= 45;
+  if (difficulty === "MEDIUM") {
+    return wordCount >= 20 && options.every((option) => !hasExplanatoryOptionContext(option.text));
+  }
+  return wordCount >= 45 && options.every((option) => !hasHardAnswerContext(option.text));
+}
+
 // Modelos tentados em ordem quando GEMINI_MODEL não está definido (fallback em caso de 404/503)
 const DEFAULT_MODELS = ["gemini-3.5-flash", "gemini-flash-lite-latest"];
 
@@ -286,13 +309,10 @@ export async function generateQuestionsWithGemini(
         }
         const raw = parsed.data;
 
-        if (
-          options.difficulty === "HARD" &&
-          raw.options.some((option) => hasHardAnswerContext(option.text))
-        ) {
-          reject("alternativa difícil contém contexto");
-          continue;
-        }
+            if (!matchesDifficultyShape(raw.stem, raw.options, options.difficulty)) {
+              reject("estrutura incompatível com a dificuldade solicitada");
+              continue;
+            }
 
         if (!allowedSubtopics.has(raw.subtopic)) {
           reject("subtópico fora da lista");

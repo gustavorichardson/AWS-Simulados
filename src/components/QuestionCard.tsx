@@ -5,6 +5,9 @@ import {
   ExamMode,
   QuestionDifficulty,
   StudyFeedback,
+  StudyQuestionFeedbackState,
+  StudyFeedbackCategory,
+  DifficultyDirection,
 } from "../types/exam";
 import {
   ChevronLeft,
@@ -24,10 +27,19 @@ interface QuestionCardProps {
   allQuestions: QuestionPublicView[];
   answers: Record<string, string>;
   studyFeedback: Record<string, StudyFeedback>;
+  unknownOptions: Record<string, string[]>;
+  questionFeedback: Record<string, StudyQuestionFeedbackState>;
   isConfirmingAnswer: boolean;
   markedForReview: Record<string, boolean>;
   onSelectOption: (optionId: string) => void;
   onConfirmStudyAnswer: () => void;
+  onToggleUnknownOption: (questionId: string, optionId: string) => void;
+  onQuestionFeedback: (
+    questionId: string,
+    category: StudyFeedbackCategory,
+    active: boolean,
+    difficultyDirection?: DifficultyDirection
+  ) => void;
   onToggleReview: (questionId: string) => void;
   onJumpToQuestion: (index: number) => void;
   onPrevious: () => void;
@@ -63,10 +75,14 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   allQuestions,
   answers,
   studyFeedback,
+  unknownOptions,
+  questionFeedback,
   isConfirmingAnswer,
   markedForReview,
   onSelectOption,
   onConfirmStudyAnswer,
+  onToggleUnknownOption,
+  onQuestionFeedback,
   onToggleReview,
   onJumpToQuestion,
   onPrevious,
@@ -87,6 +103,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const feedback = studyFeedback[question.id];
   const isStudyConfirmed = mode === "ESTUDO" && !!feedback;
   const isMarked = !!markedForReview[question.id];
+  const unknownOptionIds = unknownOptions[question.id] ?? [];
+  const reportedFeedback = questionFeedback[question.id] ?? {};
 
   const answeredCount = mode === "ESTUDO" ? Object.keys(studyFeedback).length : Object.keys(answers).length;
   const reviewedCount = Object.values(markedForReview).filter(Boolean).length;
@@ -291,11 +309,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
             return (
               <div key={option.id} className="space-y-2">
-                <button
-                  type="button"
-                  onClick={() => onSelectOption(option.id)}
-                  disabled={isStudyConfirmed}
-                  className={`w-full p-4 rounded-xl border text-left flex items-start justify-between transition-all ${
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    onClick={() => onSelectOption(option.id)}
+                    disabled={isStudyConfirmed}
+                    className={`flex-1 p-4 rounded-xl border text-left flex items-start justify-between transition-all ${
                     isCorrectOption
                       ? "border-emerald-500 bg-emerald-50 text-emerald-950 font-medium"
                       : isSelectedIncorrect
@@ -340,7 +359,20 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   >
                     {isSelected && <div className={`w-2 h-2 rounded-full ${isCorrectOption ? "bg-white" : "bg-slate-950"}`} />}
                   </div>
-                </button>
+                  </button>
+                  {mode === "ESTUDO" && (
+                    <label className="min-h-12 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-600 cursor-pointer hover:bg-amber-50 hover:border-amber-200">
+                      <input
+                        type="checkbox"
+                        aria-label={`Não conheço o significado da alternativa ${letter}`}
+                        checked={unknownOptionIds.includes(option.id)}
+                        onChange={() => onToggleUnknownOption(question.id, option.id)}
+                        className="h-4 w-4 accent-amber-500"
+                      />
+                      <span className="hidden sm:inline">Não conheço</span>
+                    </label>
+                  )}
+                </div>
                 {feedback && (
                   <div
                     role="status"
@@ -402,6 +434,70 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               </button>
             </div>
           )
+        )}
+
+        {mode === "ESTUDO" && (
+          <section className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h3 className="text-sm font-bold text-slate-800">Sinalizar problema nesta questão</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Seu feedback será registrado e considerado em gerações futuras; ele não altera sua resposta ou pontuação.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {([
+                ["ERRADA", "Questão errada"],
+                ["REPETIDA", "Questão repetida"],
+                ["DIFICULDADE_INCORRETA", "Dificuldade incorreta"],
+              ] as const).map(([category, label]) => {
+                const active = Object.prototype.hasOwnProperty.call(reportedFeedback, category);
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() =>
+                      onQuestionFeedback(
+                        question.id,
+                        category,
+                        !active,
+                        category === "DIFICULDADE_INCORRETA"
+                          ? (reportedFeedback[category] as DifficultyDirection | undefined) ?? "MAIS_FACIL"
+                          : undefined
+                      )
+                    }
+                    className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                      active
+                        ? "border-amber-400 bg-amber-100 text-amber-950"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    {active ? "✓ " : ""}{label}
+                  </button>
+                );
+              })}
+            </div>
+            {Object.prototype.hasOwnProperty.call(reportedFeedback, "DIFICULDADE_INCORRETA") && (
+              <fieldset className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-700">
+                <legend className="sr-only">Ajuste de dificuldade</legend>
+                {([
+                  ["MAIS_FACIL", "Mais fácil do que deveria"],
+                  ["MAIS_DIFICIL", "Mais difícil do que deveria"],
+                ] as const).map(([direction, label]) => (
+                  <label key={direction} className="inline-flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`difficulty-${question.id}`}
+                      checked={reportedFeedback.DIFICULDADE_INCORRETA === direction}
+                      onChange={() =>
+                        onQuestionFeedback(question.id, "DIFICULDADE_INCORRETA", true, direction)
+                      }
+                      className="accent-amber-500"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </fieldset>
+            )}
+          </section>
         )}
 
         {/* Controles de Navegação */}

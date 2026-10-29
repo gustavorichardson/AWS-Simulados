@@ -26,6 +26,7 @@ import {
   QuestionDifficulty,
   QuestionPublicView,
   StudyFeedback,
+  UnknownOptionSelection,
   QUESTION_DIFFICULTIES,
   VALID_QUESTION_COUNTS,
 } from "../types/exam";
@@ -57,6 +58,28 @@ export type StartExamInput = z.input<typeof StartExamSchema>;
 export const AnswersSchema = z
   .record(z.string().max(100), z.string().max(40))
   .refine((r) => Object.keys(r).length <= 65, { message: "Respostas em excesso." });
+const UnknownOptionsSchema = z
+  .record(
+    z.string().max(100),
+    z.array(z.enum(OPTION_IDS)).max(4)
+  )
+  .refine((r) => Object.keys(r).length <= 65, { message: "Marcações em excesso." });
+const QuestionFeedbackSchema = z
+  .object({
+    questionId: z.string().min(1).max(100),
+    category: z.enum(["ERRADA", "REPETIDA", "DIFICULDADE_INCORRETA"]),
+    active: z.boolean(),
+    difficultyDirection: z.enum(["MAIS_FACIL", "MAIS_DIFICIL"]).optional(),
+  })
+  .superRefine((feedback, context) => {
+    if (feedback.category === "DIFICULDADE_INCORRETA" && !feedback.difficultyDirection) {
+      context.addIssue({
+        code: "custom",
+        message: "Informe se a questão está mais fácil ou mais difícil do que deveria.",
+        path: ["difficultyDirection"],
+      });
+    }
+  });
 
 export const RecoverySchema = z.object({
   mode: z.enum(["ESTUDO", "PROVA"]).optional(),
@@ -72,6 +95,7 @@ function parse<T extends z.ZodTypeAny>(schema: T, data: unknown): z.output<T> {
 
 const attemptInclude = {
   answers: { include: { question: true }, orderBy: { position: "asc" } },
+  feedback: true,
 } satisfies Prisma.ExamAttemptInclude;
 
 type AttemptWithAnswers = Prisma.ExamAttemptGetPayload<{ include: typeof attemptInclude }>;
@@ -167,7 +191,7 @@ function validateAnswers(attempt: AttemptWithAnswers, answers: Record<string, st
 }
 
 export function buildResultView(
-  attempt: { id: string; mode: string; isRecovery: boolean; finishedAt: Date | null },
+  attempt: AttemptWithAnswers,
   evaluation: ExamEvaluationResult
 ): ExamResultView {
   const { detailedAnswers, ...summary } = evaluation;
@@ -178,7 +202,28 @@ export function buildResultView(
     mode,
     isRecovery: attempt.isRecovery,
     finishedAt: attempt.finishedAt ? attempt.finishedAt.toISOString() : null,
-    ...(mode === "ESTUDO" ? { detailedAnswers } : {}),
+    ...(mode === "ESTUDO"
+      ? {
+          detailedAnswers,
+          unknownOptions: attempt.answers.flatMap((answer): UnknownOptionSelection[] => {
+            const question = orderedInternalQuestion(answer);
+            return answer.unknownOptionIds.flatMap((optionId) => {
+              const option = question.options.find((item) => item.id === optionId);
+              return option
+                ? [
+                    {
+                      questionId: question.id,
+                      topic: question.topic,
+                      domain: question.domain,
+                      optionId,
+                      optionText: option.text,
+                    },
+                  ]
+                : [];
+            });
+          }),
+        }
+      : {}),
   };
 }
 
@@ -216,6 +261,7 @@ export async function startExam(userId: string, rawInput: unknown, options: Star
       difficulty: input.difficulty,
       domains,
       subtopics,
+      ...(isRecovery ? { focusSubtopics: subtopics } : {}),
       allowSeenReuse: !isRecovery,
     });
   } catch (error) {
@@ -271,28 +317,127 @@ export async function getAttemptForUser(userId: string, attemptId: string) {
     finished: false as const,
     questions: toPublicQuestions(attempt),
     answers,
-    ...(attempt.mode === "ESTUDO" ? { studyFeedback: getStudyFeedback(attempt, answers) } : {}),
+    ...(attempt.mode === "ESTUDO"
+      ? {
+          studyFeedback: getStudyFeedback(attempt, answers),
+          unknownOptions: Object.fromEntries(
+            attempt.answers.map((answer) => [answer.questionId, answer.unknownOptionIds])
+          ),
+          questionFeedback: Object.fromEntries(
+            attempt.feedback.map((feedback) => [
+              feedback.questionId,
+              {
+                category: feedback.category,
+                difficultyDirection: feedback.difficultyDirection,
+              },
+            ])
+          ),
+        }
+      : {}),
   };
 }
 
-export async function saveProgress(userId: string, attemptId: string, rawAnswers: unknown) {
+export async function saveProgress(
+  userId: string,
+  attemptId: string,
+  rawAnswers: unknown,
+  rawUnknownOptions: unknown = {}
+) {
   const answers = parse(AnswersSchema, rawAnswers);
+  const unknownOptions = parse(UnknownOptionsSchema, rawUnknownOptions);
   const attempt = await loadOwnedAttempt(userId, attemptId);
   if (attempt.finishedAt) throw new ExamServiceError(409, "Este simulado já foi finalizado.");
   validateAnswers(attempt, answers);
+  if (Object.keys(unknownOptions).length > 0 && attempt.mode !== "ESTUDO") {
+    throw new ExamServiceError(400, "A marcação de alternativas desconhecidas está disponível no Modo Estudo.");
+  }
+  const answerByQuestion = new Map(attempt.answers.map((answer) => [answer.questionId, answer]));
+  for (const [questionId, optionIds] of Object.entries(unknownOptions)) {
+    if (!answerByQuestion.has(questionId)) {
+      throw new ExamServiceError(400, "Marcação para questão que não pertence ao simulado.");
+    }
+    if (optionIds.some((optionId) => !OPTION_IDS.includes(optionId))) {
+      throw new ExamServiceError(400, "Alternativa desconhecida inválida.");
+    }
+  }
 
-  await prisma.$transaction(
-    Object.entries(answers).map(([questionId, selectedOptionId]) =>
+  const updates = [
+    ...Object.entries(answers).map(([questionId, selectedOptionId]) =>
       prisma.examAnswer.update({
         where: { attemptId_questionId: { attemptId: attempt.id, questionId } },
         data: { selectedOptionId, answeredAt: new Date() },
       })
-    )
-  );
+    ),
+    ...Object.entries(unknownOptions).map(([questionId, unknownOptionIds]) =>
+      prisma.examAnswer.update({
+        where: { attemptId_questionId: { attemptId: attempt.id, questionId } },
+        data: { unknownOptionIds },
+      })
+    ),
+  ];
+  if (updates.length > 0) await prisma.$transaction(updates);
   return {
     saved: Object.keys(answers).length,
     ...(attempt.mode === "ESTUDO" ? { studyFeedback: getStudyFeedback(attempt, answers) } : {}),
   };
+}
+
+export async function saveQuestionFeedback(
+  userId: string,
+  attemptId: string,
+  rawFeedback: unknown
+) {
+  const feedback = parse(QuestionFeedbackSchema, rawFeedback);
+  const attempt = await loadOwnedAttempt(userId, attemptId);
+  if (attempt.finishedAt) throw new ExamServiceError(409, "Este simulado já foi finalizado.");
+  if (attempt.mode !== "ESTUDO") {
+    throw new ExamServiceError(400, "O feedback de qualidade está disponível no Modo Estudo.");
+  }
+  const answer = attempt.answers.find((row) => row.questionId === feedback.questionId);
+  if (!answer) throw new ExamServiceError(400, "Questão que não pertence ao simulado.");
+
+  const unique = {
+    attemptId_questionId_category: {
+      attemptId: attempt.id,
+      questionId: answer.questionId,
+      category: feedback.category,
+    },
+  };
+  if (!feedback.active) {
+    await prisma.questionFeedback.deleteMany({
+      where: {
+        attemptId: attempt.id,
+        questionId: answer.questionId,
+        category: feedback.category,
+        userId,
+      },
+    });
+    return { saved: false };
+  }
+
+  await prisma.questionFeedback.upsert({
+    where: unique,
+    create: {
+      userId,
+      attemptId: attempt.id,
+      questionId: answer.questionId,
+      category: feedback.category,
+      difficultyDirection:
+        feedback.category === "DIFICULDADE_INCORRETA"
+          ? feedback.difficultyDirection
+          : null,
+      difficulty: attempt.difficulty,
+      domain: answer.question.domain,
+      topic: answer.question.topic,
+    },
+    update: {
+      difficultyDirection:
+        feedback.category === "DIFICULDADE_INCORRETA"
+          ? feedback.difficultyDirection
+          : null,
+    },
+  });
+  return { saved: true };
 }
 
 function evaluateAttempt(attempt: AttemptWithAnswers, overrides: Record<string, string> = {}) {

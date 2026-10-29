@@ -114,8 +114,7 @@ model Question {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
   answers            ExamAnswer[]
-  feedback           QuestionFeedback[]
-  feedbackUsages     FeedbackGenerationUsage[] @relation("FeedbackGeneratedQuestion")
+  feedback            QuestionFeedback[]
 
   @@index([domain, topic])
   @@map("questions")
@@ -181,7 +180,7 @@ model QuestionFeedback {
   user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   attempt             ExamAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
   question            Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  usages              FeedbackGenerationUsage[]
+  promptUses          FeedbackPromptUse[]
 
   @@unique([attemptId, questionId, category])
   @@index([domain, topic, category, createdAt])
@@ -189,17 +188,18 @@ model QuestionFeedback {
   @@map("question_feedback")
 }
 
-model FeedbackGenerationUsage {
-  id                  String   @id @default(cuid())
-  feedbackId          String
-  generatedQuestionId String
-  usedAt              DateTime @default(now())
-  feedback            QuestionFeedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
-  generatedQuestion   Question @relation("FeedbackGeneratedQuestion", fields: [generatedQuestionId], references: [id], onDelete: Cascade)
+model FeedbackPromptUse {
+  id                    String   @id @default(cuid())
+  feedbackId            String
+  generationId          String
+  generatedQuestionIds  String[] @default([])
+  usedAt                DateTime @default(now())
+  implementedAt         DateTime?
+  feedback              QuestionFeedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
 
-  @@unique([feedbackId, generatedQuestionId])
-  @@index([generatedQuestionId, usedAt])
-  @@map("feedback_generation_usages")
+  @@unique([feedbackId, generationId])
+  @@index([usedAt])
+  @@map("feedback_prompt_uses")
 }
 
 model FeedbackMetricSnapshot {
