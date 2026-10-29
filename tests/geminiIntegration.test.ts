@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   RawGeminiQuestionSchema,
-  GeminiQuestionsBatchSchema,
   computeStemHash,
+  hasHardAnswerContext,
+  buildQuestionPrompt,
   isDuplicateQuestion,
   generateQuestionsWithGemini,
 } from "../src/lib/gemini";
@@ -26,6 +27,12 @@ vi.mock("@google/genai", () => {
               ],
               correctOptionId: "opt_a",
               explanation: "O AWS Security Token Service (STS) com IAM Roles fornece credenciais temporárias de segurança com expiração automática.",
+              optionExplanations: {
+                opt_a: "IAM Roles com STS emitem credenciais temporárias federadas, conforme solicitado.",
+                opt_b: "Chaves permanentes não expiram automaticamente e não atendem ao requisito.",
+                opt_c: "Políticas do S3 não fornecem credenciais temporárias para instâncias EC2.",
+                opt_d: "Grupos de segurança controlam tráfego de rede, não identidade federada.",
+              },
             },
           ]),
         }),
@@ -52,6 +59,12 @@ describe("Integração Gemini API (Server-Side) e Validação Estruturada com Zo
     ],
     correctOptionId: "opt_a",
     explanation: "Elasticidade é a capacidade de adquirir recursos à medida que precisa deles e liberar quando não são mais necessários.",
+    optionExplanations: {
+      opt_a: "Elasticidade ajusta recursos automaticamente conforme a demanda varia.",
+      opt_b: "Confiabilidade não é o conceito de provisionamento automático sob demanda.",
+      opt_c: "CapEx descreve investimento inicial, não ajuste de capacidade.",
+      opt_d: "Latência fixa não representa mudança automática de capacidade.",
+    },
   };
 
   it("deve validar com sucesso uma questão no schema Zod do Gemini", () => {
@@ -90,6 +103,24 @@ describe("Integração Gemini API (Server-Side) e Validação Estruturada com Zo
     expect(parsed.success).toBe(false);
   });
 
+  it("reconhece contexto explicativo em alternativas difíceis e aceita nomes crus", () => {
+    expect(hasHardAnswerContext("Amazon S3")).toBe(false);
+    expect(hasHardAnswerContext("AWS Identity and Access Management")).toBe(false);
+    expect(hasHardAnswerContext("Amazon S3, serviço de armazenamento de objetos")).toBe(true);
+    expect(hasHardAnswerContext("Amazon S3 permite armazenar objetos")).toBe(true);
+  });
+
+  it("mantém qualquer nível de geração dentro do escopo de dificuldade CLF-C02", () => {
+    const easyPrompt = buildQuestionPrompt({ count: 1, difficulty: "EASY" });
+    const hardPrompt = buildQuestionPrompt({ count: 1, difficulty: "HARD" });
+
+    expect(easyPrompt).toContain("REGRA DE ESCOPO INEGOCIÁVEL");
+    expect(easyPrompt).toContain("NUNCA ultrapasse esse nível");
+    expect(easyPrompt).toContain("contexto curto e familiar");
+    expect(hardPrompt).toContain("limite máximo Cloud Practitioner");
+    expect(hardPrompt).toContain("somente o nome cru");
+  });
+
   it("deve calcular o hash normalizado ignorando maiúsculas, acentos e pontuação (Deduplicação)", () => {
     const stem1 = "Qual recurso do IAM concede permissões temporárias?";
     const stem2 = "qual recurso do iam concede permissoes temporarias"; // sem acento e sem interrogação
@@ -110,6 +141,7 @@ describe("Integração Gemini API (Server-Side) e Validação Estruturada com Zo
 
     const questions = await generateQuestionsWithGemini({
       count: 1,
+      difficulty: "MEDIUM",
       domain: "Domínio 2: Segurança e Conformidade",
     });
 
@@ -119,5 +151,7 @@ describe("Integração Gemini API (Server-Side) e Validação Estruturada com Zo
     expect(q.options).toHaveLength(4);
     expect(q.correctOptionId).toBe("opt_a");
     expect(q.explanation).toContain("AWS Security Token Service");
+    expect(q.difficulty).toBe("MEDIUM");
+    expect(q.optionExplanations?.opt_a).toContain("credenciais temporárias");
   });
 });

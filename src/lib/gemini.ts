@@ -1,7 +1,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { z } from "zod";
 import crypto from "crypto";
-import { QuestionInternal, ExamDomain, EXAM_DOMAINS } from "../types/exam";
+import {
+  QuestionInternal,
+  ExamDomain,
+  EXAM_DOMAINS,
+  QuestionDifficulty,
+} from "../types/exam";
 import { findDomainBySubtopic, getAllSubtopics } from "../types/subtopics";
 import { detectAnswerLeak, isNearDuplicate, normalizeText } from "./question-quality";
 
@@ -39,7 +44,13 @@ export const RawGeminiQuestionSchema = z.object({
   correctOptionId: z.enum(["opt_a", "opt_b", "opt_c", "opt_d"]),
   explanation: z
     .string()
-    .min(25, "A explicação deve detalhar o motivo do gabarito e por que as outras são incorretas"),
+    .min(25, "A explicação da resposta correta é obrigatória"),
+  optionExplanations: z.object({
+    opt_a: z.string().min(10),
+    opt_b: z.string().min(10),
+    opt_c: z.string().min(10),
+    opt_d: z.string().min(10),
+  }),
   documentationUrl: z.string().optional(),
 });
 
@@ -75,6 +86,7 @@ export function isAiGenerationConfigured(): boolean {
 
 export interface GenerateQuestionsOptions {
   count: number;
+  difficulty: QuestionDifficulty;
   domain?: ExamDomain;
   /** Subtópicos permitidos. Questões fora desta lista são descartadas. */
   subtopics?: string[];
@@ -87,11 +99,29 @@ export interface GenerateQuestionsOptions {
 
 const OPTION_IDS = ["opt_a", "opt_b", "opt_c", "opt_d"] as const;
 
+export function hasHardAnswerContext(text: string): boolean {
+  const words = text.trim().split(/\s+/);
+  return (
+    words.length > 7 ||
+    /[,;:!?()]|\b(?:com|que|permite|oferece|fornece|serviço|servico|armazenamento|banco de dados|usado para|ideal para|responsável por)\b/i.test(
+      text
+    )
+  );
+}
+
 // Modelos tentados em ordem quando GEMINI_MODEL não está definido (fallback em caso de 404/503)
 const DEFAULT_MODELS = ["gemini-3.5-flash", "gemini-flash-lite-latest"];
 
-function buildPrompt(options: GenerateQuestionsOptions): string {
+export function buildQuestionPrompt(options: GenerateQuestionsOptions): string {
   const domainTarget = options.domain || "qualquer um dos 4 domínios oficiais";
+  const difficultyInstructions: Record<QuestionDifficulty, string> = {
+    EASY:
+      "FÁCIL: cobre conceitos fundamentais do nível Cloud Practitioner, com enunciado direto e alternativas que tragam contexto curto e familiar para facilitar a identificação.",
+    MEDIUM:
+      "MÉDIO: permanece no nível Cloud Practitioner, exige interpretar um cenário breve e usa alternativas com contexto moderado, sem conhecimentos de certificações avançadas.",
+    HARD:
+      "DIFÍCIL (limite máximo Cloud Practitioner): exige distinguir conceitos do escopo CLF-C02, sem entrar em conteúdo de nível Associate, Professional ou Specialty. As alternativas devem conter somente o nome cru do serviço, conceito ou resposta (ex.: 'Amazon S3', 'Amazon EBS', 'Amazon RDS'), sem contexto, descrição, benefício, justificativa, frase ou explicação junto ao nome.",
+  };
   const subtopicsTarget =
     options.subtopics && options.subtopics.length > 0
       ? `Use SOMENTE estes subtópicos e copie o nome exatamente no campo 'subtopic': ${options.subtopics
@@ -104,8 +134,12 @@ function buildPrompt(options: GenerateQuestionsOptions): string {
     .map((s) => `- ${s.slice(0, 140)}`)
     .join("\n");
 
-  return `Você é autor sênior de questões para o exame AWS Certified Cloud Practitioner (CLF-C02).
-Gere exatamente ${options.count} questões inéditas, difíceis e situacionais, baseadas em cenários reais de negócios.
+  return `Você é autor de questões para a prova AWS Certified Cloud Practitioner (CLF-C02), uma certificação introdutória.
+REGRA DE ESCOPO INEGOCIÁVEL: tanto o conteúdo quanto a dificuldade devem permanecer dentro do nível Cloud Practitioner e do blueprint oficial CLF-C02. NUNCA ultrapasse esse nível: não cobre arquitetura avançada, implementação profunda, comandos, configuração detalhada ou conteúdo de Associate, Professional ou Specialty.
+Gere exatamente ${options.count} questões inéditas no nível ${options.difficulty}.
+
+NÍVEL PEDAGÓGICO SELECIONADO:
+${difficultyInstructions[options.difficulty]}
 
 REQUISITOS OBRIGATÓRIOS:
 1. Idioma: português brasileiro.
@@ -113,11 +147,14 @@ REQUISITOS OBRIGATÓRIOS:
 3. ${subtopicsTarget}
 4. Exatamente quatro alternativas com ids 'opt_a', 'opt_b', 'opt_c' e 'opt_d', e apenas UMA correta ('correctOptionId').
 5. Não inclua a opção 'Não sei'.
-6. A explicação deve ser didática e justificar a correta e cada incorreta.
+6. 'explanation' resume por que a resposta correta atende ao enunciado.
+7. 'optionExplanations' deve conter quatro justificativas independentes, uma para cada id opt_a, opt_b, opt_c e opt_d. Cada justificativa deve analisar SOMENTE o texto da alternativa daquele mesmo id, dizer claramente por que ela responde ou não ao enunciado e usar fatos corretos do escopo CLF-C02.
+8. A chave da justificativa deve corresponder exatamente ao id da alternativa. Nunca troque, copie ou atribua a justificativa de uma alternativa a outra; somente correctOptionId é correta.
 
 REGRAS CONTRA PISTAS (a resposta NÃO pode ser deduzível sem conhecimento):
-- Todas as alternativas devem ter tamanho, nível de detalhe e estrutura gramatical semelhantes.
-- Todas as alternativas devem ser serviços, conceitos ou ações reais e plausíveis do mesmo tipo.
+- Em FÁCIL e MÉDIO, aplique somente o nível de contexto indicado acima, com alternativas plausíveis e comparáveis.
+- Em DIFÍCIL, todas as alternativas devem ser apenas nomes crus de serviços/conceitos/respostas, sem contexto ou descrição.
+- Em qualquer nível, todas as alternativas devem ser plausíveis e não podem revelar a correta pelo tamanho ou formatação.
 - O enunciado NÃO pode repetir palavras ou o nome do serviço presentes apenas na alternativa correta.
 - Não use "todas as anteriores", "nenhuma das anteriores", nem termos como "correta" ou "gabarito" nas alternativas.
 - Varie a posição da alternativa correta entre opt_a, opt_b, opt_c e opt_d.
@@ -149,7 +186,7 @@ export async function generateQuestionsWithGemini(
   );
 
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  const prompt = buildPrompt(options);
+  const prompt = buildQuestionPrompt(options);
 
   let attempt = 0;
   let lastError: unknown = null;
@@ -182,8 +219,26 @@ export async function generateQuestionsWithGemini(
                 },
                 correctOptionId: { type: Type.STRING },
                 explanation: { type: Type.STRING },
+                optionExplanations: {
+                  type: Type.OBJECT,
+                  properties: {
+                    opt_a: { type: Type.STRING },
+                    opt_b: { type: Type.STRING },
+                    opt_c: { type: Type.STRING },
+                    opt_d: { type: Type.STRING },
+                  },
+                  required: ["opt_a", "opt_b", "opt_c", "opt_d"],
+                },
               },
-              required: ["domain", "subtopic", "stem", "options", "correctOptionId", "explanation"],
+              required: [
+                "domain",
+                "subtopic",
+                "stem",
+                "options",
+                "correctOptionId",
+                "explanation",
+                "optionExplanations",
+              ],
             },
           },
         },
@@ -207,6 +262,14 @@ export async function generateQuestionsWithGemini(
         }
         const raw = parsed.data;
 
+        if (
+          options.difficulty === "HARD" &&
+          raw.options.some((option) => hasHardAnswerContext(option.text))
+        ) {
+          reject("alternativa difícil contém contexto");
+          continue;
+        }
+
         if (!allowedSubtopics.has(raw.subtopic)) {
           reject("subtópico fora da lista");
           continue;
@@ -217,8 +280,12 @@ export async function generateQuestionsWithGemini(
           continue;
         }
 
-        const options = OPTION_IDS.map((id) => raw.options.find((o) => o.id === id)!);
-        const leak = detectAnswerLeak({ stem: raw.stem, options, correctOptionId: raw.correctOptionId });
+        const orderedOptions = OPTION_IDS.map((id) => raw.options.find((o) => o.id === id)!);
+        const leak = detectAnswerLeak({
+          stem: raw.stem,
+          options: orderedOptions,
+          correctOptionId: raw.correctOptionId,
+        });
         if (leak) {
           reject(leak);
           continue;
@@ -237,9 +304,11 @@ export async function generateQuestionsWithGemini(
           domain,
           topic: raw.subtopic,
           stem: raw.stem,
-          options: options.map((o) => ({ id: o.id, text: o.text })),
+          options: orderedOptions.map((o) => ({ id: o.id, text: o.text })),
           correctOptionId: raw.correctOptionId,
           explanation: raw.explanation,
+          difficulty: options.difficulty,
+          optionExplanations: raw.optionExplanations,
         });
       }
 

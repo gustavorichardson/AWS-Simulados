@@ -8,7 +8,12 @@ import { randomInt } from "crypto";
 import type { Question } from "@prisma/client";
 import { prisma } from "./prisma";
 import { MOCK_QUESTIONS } from "../data/mockQuestions";
-import { ExamDomain, QuestionInternal } from "../types/exam";
+import {
+  ExamDomain,
+  QUESTION_DIFFICULTIES,
+  QuestionDifficulty,
+  QuestionInternal,
+} from "../types/exam";
 import { DOMAIN_HIERARCHIES } from "../types/subtopics";
 import {
   computeStemHash,
@@ -37,6 +42,23 @@ export function shuffle<T>(items: T[]): T[] {
 }
 
 export function toInternalQuestion(q: Question): QuestionInternal {
+  const explanations = q.optionExplanations;
+  const optionExplanations =
+    explanations &&
+    typeof explanations === "object" &&
+    !Array.isArray(explanations) &&
+    typeof explanations.opt_a === "string" &&
+    typeof explanations.opt_b === "string" &&
+    typeof explanations.opt_c === "string" &&
+    typeof explanations.opt_d === "string"
+      ? {
+          opt_a: explanations.opt_a,
+          opt_b: explanations.opt_b,
+          opt_c: explanations.opt_c,
+          opt_d: explanations.opt_d,
+        }
+      : undefined;
+
   return {
     id: q.id,
     domain: q.domain as ExamDomain,
@@ -50,6 +72,8 @@ export function toInternalQuestion(q: Question): QuestionInternal {
     ],
     correctOptionId: q.correctOptionId,
     explanation: q.explanation,
+    difficulty: QUESTION_DIFFICULTIES.find((level) => level === q.difficulty) ?? "MEDIUM",
+    ...(optionExplanations ? { optionExplanations } : {}),
     documentationUrl: q.documentationUrl ?? undefined,
   };
 }
@@ -67,8 +91,9 @@ function toQuestionRow(q: QuestionInternal, source: string) {
     optionD: text("opt_d"),
     correctOptionId: q.correctOptionId,
     explanation: q.explanation,
+    ...(q.optionExplanations ? { optionExplanations: q.optionExplanations } : {}),
     documentationUrl: q.documentationUrl ?? null,
-    difficulty: "HARD",
+    difficulty: q.difficulty ?? "MEDIUM",
     stemHash: computeStemHash(q.stem),
     source,
   };
@@ -96,6 +121,7 @@ export function ensureQuestionBank(): Promise<void> {
 export interface SelectQuestionsParams {
   userId: string;
   count: number;
+  difficulty: QuestionDifficulty;
   domains: ExamDomain[];
   /** Subtópicos exatos. Vazio = todos os subtópicos dos domínios. */
   subtopics: string[];
@@ -116,6 +142,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 async function generateMissingQuestions(
   missing: number,
   domains: ExamDomain[],
+  difficulty: QuestionDifficulty,
   subtopics: string[],
   relatedStems: string[]
 ): Promise<QuestionInternal[]> {
@@ -149,6 +176,7 @@ async function generateMissingQuestions(
         withTimeout(
           generateQuestionsWithGemini({
             count: b.count,
+            difficulty,
             domain: domains.length === 1 ? domains[0] : undefined,
             subtopics: b.subtopics,
             existingHashes,
@@ -201,6 +229,7 @@ export async function selectQuestionsForUser(
     where: {
       isActive: true,
       domain: { in: params.domains },
+      difficulty: params.difficulty,
       ...(params.subtopics.length > 0 ? { topic: { in: params.subtopics } } : {}),
     },
   });
@@ -231,6 +260,7 @@ export async function selectQuestionsForUser(
       const generated = await generateMissingQuestions(
         params.count - picked.length,
         params.domains,
+        params.difficulty,
         params.subtopics,
         pool.map((q) => q.stem)
       );

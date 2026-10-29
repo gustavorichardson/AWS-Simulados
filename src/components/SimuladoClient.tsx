@@ -9,6 +9,8 @@ import {
   ExamMode,
   ExamResultView,
   QuestionPublicView,
+  QuestionDifficulty,
+  StudyFeedback,
   ValidQuestionCount,
 } from "../types/exam";
 import { SelectionState, createInitialSelection, ALL_DOMAINS_KEY } from "../lib/topic-selection";
@@ -25,6 +27,7 @@ interface StoredUiState {
 interface StartResponse {
   attemptId: string;
   mode: ExamMode;
+  difficulty: QuestionDifficulty;
   questions: QuestionPublicView[];
 }
 
@@ -53,6 +56,7 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
 
   const [view, setView] = useState<View>("loading");
   const [questionCount, setQuestionCount] = useState<ValidQuestionCount>(15);
+  const [difficulty, setDifficulty] = useState<QuestionDifficulty>("MEDIUM");
   const [selection, setSelection] = useState<SelectionState>(createInitialSelection());
 
   const [attemptId, setAttemptId] = useState<string | null>(null);
@@ -60,6 +64,8 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
   const [questions, setQuestions] = useState<QuestionPublicView[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [studyFeedback, setStudyFeedback] = useState<Record<string, StudyFeedback>>({});
+  const [isConfirmingAnswer, setIsConfirmingAnswer] = useState(false);
   const [markedForReview, setMarkedForReview] = useState<Record<string, boolean>>({});
 
   const [isLoading, setIsLoading] = useState(false);
@@ -81,7 +87,15 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
     async (id: string, ui?: StoredUiState) => {
       const data = await requestJson<
         | { finished: true; attemptId: string }
-        | { finished: false; attemptId: string; mode: ExamMode; questions: QuestionPublicView[]; answers: Record<string, string> }
+        | {
+            finished: false;
+            attemptId: string;
+            mode: ExamMode;
+            difficulty: QuestionDifficulty;
+            questions: QuestionPublicView[];
+            answers: Record<string, string>;
+            studyFeedback?: Record<string, StudyFeedback>;
+          }
       >(`/api/simulados/${id}`);
       if (data.finished) {
         localStorage.removeItem(storageKey);
@@ -90,8 +104,10 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
       }
       setAttemptId(data.attemptId);
       setExamMode(data.mode);
+      setDifficulty(data.difficulty);
       setQuestions(data.questions);
       setAnswers(data.answers);
+      setStudyFeedback(data.studyFeedback ?? {});
       setMarkedForReview(ui?.markedForReview ?? {});
       setCurrentIndex(Math.min(ui?.currentIndex ?? 0, data.questions.length - 1));
       setView("exam");
@@ -142,9 +158,12 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
   const beginExam = (data: StartResponse) => {
     setAttemptId(data.attemptId);
     setExamMode(data.mode);
+    setDifficulty(data.difficulty);
     setQuestions(data.questions);
     setCurrentIndex(0);
     setAnswers({});
+    setStudyFeedback({});
+    setIsConfirmingAnswer(false);
     setMarkedForReview({});
     setExamResult(null);
     pendingAnswers.current = {};
@@ -160,6 +179,7 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
         method: "POST",
         body: JSON.stringify({
           questionCount,
+          difficulty,
           mode,
           selectedTopics: selection.isAllSelected ? [ALL_DOMAINS_KEY] : selection.selectedDomains,
           selectedSubtopics: selection.isAllSelected ? [] : selection.selectedSubtopics,
@@ -176,10 +196,40 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
   const handleSelectOption = (optionId: string) => {
     const current = questions[currentIndex];
     if (!current) return;
+    if (examMode === "ESTUDO") {
+      if (studyFeedback[current.id]) return;
+      setAnswers((prev) => ({ ...prev, [current.id]: optionId }));
+      return;
+    }
     setAnswers((prev) => ({ ...prev, [current.id]: optionId }));
     pendingAnswers.current[current.id] = optionId;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(flushProgress, 800);
+  };
+
+  const handleConfirmStudyAnswer = async () => {
+    const current = questions[currentIndex];
+    const selectedOptionId = current ? answers[current.id] : undefined;
+    if (!attemptId || !current || !selectedOptionId || studyFeedback[current.id] || isConfirmingAnswer) return;
+
+    setIsConfirmingAnswer(true);
+    setApiError(null);
+    try {
+      const data = await requestJson<{ studyFeedback?: Record<string, StudyFeedback> }>(
+        `/api/simulados/${attemptId}/progresso`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ answers: { [current.id]: selectedOptionId } }),
+        }
+      );
+      const feedback = data.studyFeedback?.[current.id];
+      if (!feedback) throw new Error("Não foi possível carregar a explicação desta resposta.");
+      setStudyFeedback((prev) => ({ ...prev, [current.id]: feedback }));
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Erro ao confirmar a resposta.");
+    } finally {
+      setIsConfirmingAnswer(false);
+    }
   };
 
   const handleToggleReview = (questionId: string) => {
@@ -194,7 +244,17 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
     try {
       const data = await requestJson<{ result: ExamResultView }>(
         `/api/simulados/${attemptId}/finalizar`,
-        { method: "POST", body: JSON.stringify({ answers }) }
+        {
+          method: "POST",
+          body: JSON.stringify({
+            answers:
+              examMode === "ESTUDO"
+                ? Object.fromEntries(
+                    Object.keys(studyFeedback).map((questionId) => [questionId, answers[questionId]])
+                  )
+                : answers,
+          }),
+        }
       );
       pendingAnswers.current = {};
       localStorage.removeItem(storageKey);
@@ -213,6 +273,8 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
     setAttemptId(null);
     setQuestions([]);
     setAnswers({});
+    setStudyFeedback({});
+    setIsConfirmingAnswer(false);
     setMarkedForReview({});
     setExamResult(null);
     setApiError(null);
@@ -247,8 +309,10 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
         {view === "exam" && (
           <div className="max-w-4xl mx-auto mb-4 flex items-center justify-between p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-950">
             <span>
-              <strong>{examMode === "ESTUDO" ? "Modo Estudo" : "Modo Prova"}</strong> — suas respostas são
-              salvas automaticamente.
+              <strong>{examMode === "ESTUDO" ? "Modo Estudo" : "Modo Prova"}</strong> —{" "}
+              {examMode === "ESTUDO"
+                ? "confirme cada resposta para ver a explicação."
+                : "suas respostas são salvas automaticamente."}
             </span>
             <button
               type="button"
@@ -275,6 +339,8 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
           <ExamConfigCard
             selectedCount={questionCount}
             onCountChange={setQuestionCount}
+            difficulty={difficulty}
+            onDifficultyChange={setDifficulty}
             selection={selection}
             onSelectionChange={setSelection}
             onStartExam={handleStartExam}
@@ -289,8 +355,11 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
             totalQuestions={questions.length}
             allQuestions={questions}
             answers={answers}
+            studyFeedback={studyFeedback}
+            isConfirmingAnswer={isConfirmingAnswer}
             markedForReview={markedForReview}
             onSelectOption={handleSelectOption}
+            onConfirmStudyAnswer={handleConfirmStudyAnswer}
             onToggleReview={handleToggleReview}
             onJumpToQuestion={(idx) => setCurrentIndex(idx)}
             onPrevious={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
@@ -298,6 +367,7 @@ export function SimuladoClient({ userId, initialResultId, initialAttemptId }: Si
             onFinish={handleFinishExam}
             isSubmitting={isSubmitting}
             mode={examMode}
+            difficulty={difficulty}
           />
         )}
 

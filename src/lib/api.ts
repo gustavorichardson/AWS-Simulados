@@ -27,7 +27,7 @@ export function withUser<P = Record<string, string>>(
       if (error instanceof ExamServiceError) {
         return NextResponse.json({ error: error.message }, { status: error.status, headers: NO_STORE });
       }
-      console.error("[api] erro interno:", error instanceof Error ? error.message : error);
+      console.error("[api] erro interno:", error);
       return NextResponse.json({ error: "Erro interno. Tente novamente." }, { status: 500, headers: NO_STORE });
     }
   };

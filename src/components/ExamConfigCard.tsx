@@ -4,6 +4,8 @@ import {
   ValidQuestionCount,
   ExamDomain,
   ExamMode,
+  QuestionDifficulty,
+  QUESTION_DIFFICULTIES,
 } from "../types/exam";
 import {
   ALL_DOMAINS_LABEL,
@@ -19,7 +21,6 @@ import {
   Check,
   Sparkles,
   Award,
-  Flame,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -27,6 +28,8 @@ import {
 interface ExamConfigCardProps {
   selectedCount: ValidQuestionCount;
   onCountChange: (count: ValidQuestionCount) => void;
+  difficulty: QuestionDifficulty;
+  onDifficultyChange: (difficulty: QuestionDifficulty) => void;
   selection: SelectionState;
   onSelectionChange: (selection: SelectionState) => void;
   onStartExam: (mode: ExamMode) => void;
@@ -36,6 +39,8 @@ interface ExamConfigCardProps {
 export const ExamConfigCard: React.FC<ExamConfigCardProps> = ({
   selectedCount,
   onCountChange,
+  difficulty,
+  onDifficultyChange,
   selection,
   onSelectionChange,
   onStartExam,
@@ -76,10 +81,6 @@ export const ExamConfigCard: React.FC<ExamConfigCardProps> = ({
             <span>Certificação: AWS CLF-C02 (Fixa)</span>
           </div>
 
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold shadow-xs">
-            <Flame className="w-3.5 h-3.5 fill-rose-500 text-rose-600" />
-            <span>Dificuldade: Difícil (Fixa)</span>
-          </div>
         </div>
 
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -121,7 +122,55 @@ export const ExamConfigCard: React.FC<ExamConfigCardProps> = ({
         </div>
       </div>
 
-      {/* 2. Seleção de Domínios e Subtópicos com Menus Suspensos */}
+      {/* 2. Nível de dificuldade */}
+      <div className="mb-8">
+        <h3 className="text-sm font-bold text-slate-800 mb-3">2. Escolha a dificuldade</h3>
+        <div
+          className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+          role="radiogroup"
+          aria-label="Dificuldade do simulado"
+        >
+          {QUESTION_DIFFICULTIES.map((level) => {
+            const labels: Record<QuestionDifficulty, { title: string; description: string }> = {
+              EASY: {
+                title: "Fácil",
+                description: "Conceitos fundamentais com contexto mais direto.",
+              },
+              MEDIUM: {
+                title: "Médio",
+                description: "Cenários breves que exigem interpretar o contexto.",
+              },
+              HARD: {
+                title: "Difícil",
+                description: "Limite do nível Cloud Practitioner; respostas sem contexto.",
+              },
+            };
+            const isSelected = difficulty === level;
+            return (
+              <button
+                key={level}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() => onDifficultyChange(level)}
+                className={`p-4 rounded-xl border text-left transition-all ${
+                  isSelected
+                    ? "border-amber-500 bg-amber-50/60 ring-2 ring-amber-400/40"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <span className="font-bold text-sm text-slate-900">{labels[level].title}</span>
+                <span className="block mt-1 text-xs text-slate-500">{labels[level].description}</span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Todos os níveis respeitam o conteúdo e o limite de dificuldade da certificação AWS Cloud Practitioner (CLF-C02).
+        </p>
+      </div>
+
+      {/* 3. Seleção de Domínios e Subtópicos com Menus Suspensos */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-3">
           <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
@@ -287,7 +336,7 @@ export const ExamConfigCard: React.FC<ExamConfigCardProps> = ({
         </div>
       </div>
 
-      {/* 3. Modo do simulado */}
+      {/* 4. Modo do simulado */}
       <div className="mb-8">
         <h3 className="text-sm font-bold text-slate-800 mb-3">3. Escolha o modo</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Modo do simulado">
@@ -296,7 +345,7 @@ export const ExamConfigCard: React.FC<ExamConfigCardProps> = ({
               value: "ESTUDO" as ExamMode,
               title: "Modo Estudo",
               description:
-                "Ao finalizar, você vê a nota, o desempenho e a explicação de todas as questões, certas e erradas.",
+                "Confirme cada resposta para ver na hora se acertou e a explicação. Ao finalizar, veja também a nota e o desempenho.",
               icon: BookOpen,
             },
             {

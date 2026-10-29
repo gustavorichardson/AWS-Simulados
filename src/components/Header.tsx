@@ -2,8 +2,9 @@
 
 import React from "react";
 import Link from "next/link";
-import { Cloud, LogIn, LayoutDashboard, PlayCircle } from "lucide-react";
+import { Cloud, LogIn, LayoutDashboard, PlayCircle, Sun } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
+import { useTheme } from "next-themes";
 
 interface HeaderProps {
   onReset?: () => void;
@@ -11,6 +12,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onReset }) => {
   const { data: session } = useSession();
+  const { theme, setTheme } = useTheme();
 
   return (
     <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-50 shadow-md">
@@ -40,6 +42,20 @@ export const Header: React.FC<HeaderProps> = ({ onReset }) => {
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4 text-xs">
+          <label className="flex items-center gap-1.5 text-slate-300">
+            <Sun className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="sr-only">Tema de exibição</span>
+            <select
+              aria-label="Tema de exibição"
+              value={theme ?? "system"}
+              onChange={(event) => setTheme(event.target.value)}
+              className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+            >
+              <option value="light">Claro</option>
+              <option value="dark">Escuro</option>
+              <option value="system">Sistema</option>
+            </select>
+          </label>
           {session?.user ? (
             <div className="flex items-center gap-2">
               <Link

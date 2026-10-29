@@ -49,6 +49,13 @@ beforeAll(async () => {
         optionD: "AWS Artifact.",
         correctOptionId: "opt_a",
         explanation: "Explicação de teste suficientemente longa para validação.",
+        optionExplanations: {
+          opt_a: "A: AWS Shield Advanced oferece proteção gerenciada contra DDoS.",
+          opt_b: "B: AWS Config avalia configurações, mas não protege contra DDoS.",
+          opt_c: "C: Amazon Inspector identifica vulnerabilidades, não mitiga ataques.",
+          opt_d: "D: AWS Artifact disponibiliza relatórios de conformidade.",
+        },
+        difficulty: "MEDIUM",
         stemHash: computeStemHash(stem),
         source: "TESTE",
       };
@@ -68,6 +75,8 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
     const json = JSON.stringify(started);
     expect(json).not.toMatch(/correctOptionId|explanation|"topic"|documentationUrl/);
     expect(started.questions).toHaveLength(30);
+    const attempt = await prisma.examAttempt.findUniqueOrThrow({ where: { id: started.attemptId } });
+    expect(attempt.difficulty).toBe("MEDIUM");
     expect(new Set(started.questions.map((q) => q.id)).size).toBe(30);
     expect(new Set(started.questions.map((q) => computeStemHash(q.stem))).size).toBe(30);
     started.questions.forEach((q) => {
@@ -114,7 +123,12 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
   });
 
   it("Modo Estudo: resultado com revisão detalhada e explicação de todas as questões", async () => {
-    const started = await startExam(userB, { questionCount: 15, mode: "ESTUDO" });
+    const started = await startExam(userB, {
+      questionCount: 15,
+      mode: "ESTUDO",
+      selectedTopics: ["Domínio 2: Segurança e Conformidade"],
+      selectedSubtopics: [TEST_TOPIC],
+    });
     const result = await finishExam(userB, started.attemptId, {});
     expect(result.detailedAnswers).toHaveLength(15);
     result.detailedAnswers!.forEach((a) => {
@@ -122,6 +136,49 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
       expect(a.correctOptionId).toMatch(/^opt_[abcd]$/);
       expect(a.status).toBe("NAO_RESPONDIDA");
     });
+  });
+
+  it("Modo Estudo: só libera gabarito e explicação depois de confirmar a resposta", async () => {
+    const studyUser = (
+      await prisma.user.create({ data: { name: "Study", email: `study.${tag}@teste.local` } })
+    ).id;
+    const started = await startExam(studyUser, {
+      questionCount: 15,
+      mode: "ESTUDO",
+      selectedTopics: ["Domínio 2: Segurança e Conformidade"],
+      selectedSubtopics: [TEST_TOPIC],
+    });
+    const questionId = started.questions[0].id;
+    const beforeAnswer = await getAttemptForUser(studyUser, started.attemptId);
+    expect(beforeAnswer.finished).toBe(false);
+    if (beforeAnswer.finished) return;
+    expect(JSON.stringify(beforeAnswer)).not.toMatch(/correctOptionId|explanation/);
+
+    const selectedOptionId = await wrongOptionFor(started.attemptId, questionId);
+    const saved = await saveProgress(studyUser, started.attemptId, { [questionId]: selectedOptionId });
+    const feedback = saved.studyFeedback?.[questionId];
+    expect(feedback?.isCorrect).toBe(false);
+    expect(feedback?.correctOptionId).toBe("opt_a");
+    const selectedRationale = Object.entries(feedback?.optionExplanations ?? {}).find(
+      ([optionId]) => optionId === selectedOptionId
+    )?.[1];
+    const correctRationale = Object.entries(feedback?.optionExplanations ?? {}).find(
+      ([optionId]) => optionId === "opt_a"
+    )?.[1];
+    expect(selectedRationale).toContain("não protege contra DDoS");
+    expect(correctRationale).toContain("oferece proteção");
+
+    const resumed = await getAttemptForUser(studyUser, started.attemptId);
+    expect(resumed.finished).toBe(false);
+    if (!resumed.finished) {
+      expect(resumed.studyFeedback?.[questionId]).toEqual(feedback);
+    }
+
+    const correctOptionId = feedback!.correctOptionId;
+    await expectServiceError(
+      saveProgress(studyUser, started.attemptId, { [questionId]: correctOptionId }),
+      409
+    );
   });
 
   it("resultado só fica disponível após finalizar; finalizar duas vezes é recusado", async () => {
@@ -136,7 +193,10 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
     const started = await startExam(userA, { questionCount: 15, mode: "PROVA" });
     await expectServiceError(saveProgress(userA, started.attemptId, { qualquer_id: "opt_a" }), 400);
     await expectServiceError(saveProgress(userA, started.attemptId, { [started.questions[0].id]: "opt_z" }), 400);
-    await saveProgress(userA, started.attemptId, { [started.questions[0].id]: "opt_b" });
+    const saved = await saveProgress(userA, started.attemptId, {
+      [started.questions[0].id]: "opt_b",
+    });
+    expect(saved).not.toHaveProperty("studyFeedback");
     const resumed = await getAttemptForUser(userA, started.attemptId);
     expect(resumed.finished).toBe(false);
     if (!resumed.finished) {
@@ -148,6 +208,7 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
   it("rejeita quantidades, modos e tópicos inválidos", async () => {
     await expectServiceError(startExam(userA, { questionCount: 20, mode: "PROVA" }), 400);
     await expectServiceError(startExam(userA, { questionCount: 15, mode: "LIVRE" }), 400);
+    await expectServiceError(startExam(userA, { questionCount: 15, mode: "PROVA", difficulty: "MUITO_DIFICIL" }), 400);
     await expectServiceError(
       startExam(userA, { questionCount: 15, mode: "PROVA", selectedTopics: ["Domínio 1: Conceitos de Nuvem"], selectedSubtopics: ["Tópico inventado"] }),
       400

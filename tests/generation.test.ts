@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { QuestionInternal } from "../src/types/exam";
+import { QuestionDifficulty, QuestionInternal } from "../src/types/exam";
 
 const tag = `gen${Date.now()}`;
 const TOPIC = "AWS Secrets Manager";
@@ -9,7 +9,7 @@ vi.mock("../src/lib/gemini", async (importOriginal) => {
   return {
     ...original,
     isAiGenerationConfigured: () => true,
-    generateQuestionsWithGemini: vi.fn(async (): Promise<QuestionInternal[]> => {
+    generateQuestionsWithGemini: vi.fn(async (options: { difficulty: QuestionDifficulty }): Promise<QuestionInternal[]> => {
       const make = (i: number, stem: string): QuestionInternal => ({
         id: `gen_${tag}_${i}`,
         domain: "Domínio 2: Segurança e Conformidade",
@@ -23,6 +23,13 @@ vi.mock("../src/lib/gemini", async (importOriginal) => {
         ],
         correctOptionId: "opt_c",
         explanation: "Explicação de teste suficientemente longa.",
+        difficulty: options.difficulty,
+        optionExplanations: {
+          opt_a: "A alternativa A não atende ao requisito deste cenário.",
+          opt_b: "A alternativa B não atende ao requisito deste cenário.",
+          opt_c: "A alternativa C atende ao requisito deste cenário.",
+          opt_d: "A alternativa D não atende ao requisito deste cenário.",
+        },
       });
       const words = ["varejo", "hospital", "banco", "escola", "logística", "mídia", "governo", "jogos", "energia", "seguros",
         "turismo", "agro", "fintech", "telecom", "farmácia", "indústria", "imobiliária", "esportes", "música", "transporte"];
@@ -58,6 +65,7 @@ describe("Geração de questões quando o banco não tem inéditas suficientes",
     const questions = await selectQuestionsForUser({
       userId,
       count: 15,
+      difficulty: "EASY",
       domains: ["Domínio 2: Segurança e Conformidade"],
       subtopics: [TOPIC],
       allowSeenReuse: false,
@@ -66,7 +74,12 @@ describe("Geração de questões quando o banco não tem inéditas suficientes",
     expect(new Set(questions.map((q) => q.id)).size).toBe(15);
     expect(new Set(questions.map((q) => computeStemHash(q.stem))).size).toBe(15);
     questions.forEach((q) => expect(q.topic).toBe(TOPIC));
-    const persisted = await prisma.question.count({ where: { id: { in: questions.map((q) => q.id) } } });
-    expect(persisted).toBe(15);
+    questions.forEach((q) => expect(q.difficulty).toBe("EASY"));
+    const persisted = await prisma.question.findMany({
+      where: { id: { in: questions.map((q) => q.id) } },
+      select: { difficulty: true },
+    });
+    expect(persisted).toHaveLength(15);
+    persisted.forEach((question) => expect(question.difficulty).toBe("EASY"));
   });
 });

@@ -23,7 +23,10 @@ import {
   ExamMode,
   ExamResultView,
   QuestionInternal,
+  QuestionDifficulty,
   QuestionPublicView,
+  StudyFeedback,
+  QUESTION_DIFFICULTIES,
   VALID_QUESTION_COUNTS,
 } from "../types/exam";
 
@@ -45,6 +48,7 @@ export const StartExamSchema = z.object({
       message: "Quantidade de questões inválida.",
     }),
   mode: z.enum(["ESTUDO", "PROVA"]),
+  difficulty: z.enum(QUESTION_DIFFICULTIES).default("MEDIUM"),
   selectedTopics: z.array(z.string().max(100)).max(10).default([ALL_DOMAINS_KEY]),
   selectedSubtopics: z.array(z.string().max(150)).max(100).default([]),
 });
@@ -98,6 +102,52 @@ function toPublicQuestions(attempt: AttemptWithAnswers): QuestionPublicView[] {
   return attempt.answers.map((a) => sanitizeQuestion(orderedInternalQuestion(a)));
 }
 
+function getStudyFeedback(
+  attempt: AttemptWithAnswers,
+  selectedAnswers: Record<string, string>
+): Record<string, StudyFeedback> {
+  const answersByQuestion = new Map(attempt.answers.map((answer) => [answer.questionId, answer]));
+  return Object.fromEntries(
+    Object.entries(selectedAnswers).flatMap(([questionId, selectedOptionId]) => {
+      const answer = answersByQuestion.get(questionId);
+      if (!answer || !selectedOptionId) return [];
+      const question = orderedInternalQuestion(answer);
+      const optionExplanations = {
+        opt_a:
+          question.optionExplanations?.opt_a ??
+          (question.correctOptionId === "opt_a"
+            ? question.explanation
+            : "Esta alternativa não atende ao requisito solicitado no enunciado."),
+        opt_b:
+          question.optionExplanations?.opt_b ??
+          (question.correctOptionId === "opt_b"
+            ? question.explanation
+            : "Esta alternativa não atende ao requisito solicitado no enunciado."),
+        opt_c:
+          question.optionExplanations?.opt_c ??
+          (question.correctOptionId === "opt_c"
+            ? question.explanation
+            : "Esta alternativa não atende ao requisito solicitado no enunciado."),
+        opt_d:
+          question.optionExplanations?.opt_d ??
+          (question.correctOptionId === "opt_d"
+            ? question.explanation
+            : "Esta alternativa não atende ao requisito solicitado no enunciado."),
+      };
+      return [
+        [
+          questionId,
+          {
+            isCorrect: selectedOptionId === question.correctOptionId,
+            correctOptionId: question.correctOptionId,
+            optionExplanations,
+          },
+        ],
+      ];
+    })
+  );
+}
+
 function validateAnswers(attempt: AttemptWithAnswers, answers: Record<string, string>) {
   const byQuestion = new Map(attempt.answers.map((a) => [a.questionId, a]));
   for (const [questionId, optionId] of Object.entries(answers)) {
@@ -105,6 +155,13 @@ function validateAnswers(attempt: AttemptWithAnswers, answers: Record<string, st
     if (!row) throw new ExamServiceError(400, "Resposta para questão que não pertence ao simulado.");
     if (optionId !== DONT_KNOW_OPTION_ID && !OPTION_IDS.includes(optionId)) {
       throw new ExamServiceError(400, "Alternativa inválida.");
+    }
+    if (
+      attempt.mode === "ESTUDO" &&
+      row.selectedOptionId &&
+      row.selectedOptionId !== optionId
+    ) {
+      throw new ExamServiceError(409, "Esta resposta já foi confirmada e não pode ser alterada.");
     }
   }
 }
@@ -156,6 +213,7 @@ export async function startExam(userId: string, rawInput: unknown, options: Star
     questions = await selectQuestionsForUser({
       userId,
       count: input.questionCount,
+      difficulty: input.difficulty,
       domains,
       subtopics,
       allowSeenReuse: !isRecovery,
@@ -171,6 +229,7 @@ export async function startExam(userId: string, rawInput: unknown, options: Star
     data: {
       userId,
       questionCount: input.questionCount,
+      difficulty: input.difficulty,
       selectedDomains: domains,
       selectedSubtopics: subtopics,
       mode: input.mode,
@@ -191,6 +250,7 @@ export async function startExam(userId: string, rawInput: unknown, options: Star
   return {
     attemptId: attempt.id,
     mode: attempt.mode as ExamMode,
+    difficulty: attempt.difficulty as QuestionDifficulty,
     isRecovery: attempt.isRecovery,
     questions: toPublicQuestions(attempt),
   };
@@ -206,10 +266,12 @@ export async function getAttemptForUser(userId: string, attemptId: string) {
   return {
     attemptId: attempt.id,
     mode: attempt.mode as ExamMode,
+    difficulty: attempt.difficulty as QuestionDifficulty,
     isRecovery: attempt.isRecovery,
     finished: false as const,
     questions: toPublicQuestions(attempt),
     answers,
+    ...(attempt.mode === "ESTUDO" ? { studyFeedback: getStudyFeedback(attempt, answers) } : {}),
   };
 }
 
@@ -227,7 +289,10 @@ export async function saveProgress(userId: string, attemptId: string, rawAnswers
       })
     )
   );
-  return { saved: Object.keys(answers).length };
+  return {
+    saved: Object.keys(answers).length,
+    ...(attempt.mode === "ESTUDO" ? { studyFeedback: getStudyFeedback(attempt, answers) } : {}),
+  };
 }
 
 function evaluateAttempt(attempt: AttemptWithAnswers, overrides: Record<string, string> = {}) {
@@ -319,6 +384,7 @@ export async function startRecoveryExam(userId: string, attemptId: string, rawIn
     {
       questionCount: RECOVERY_QUESTION_COUNT,
       mode: input.mode ?? attempt.mode,
+      difficulty: attempt.difficulty as QuestionDifficulty,
       selectedTopics: [ALL_DOMAINS_KEY],
       selectedSubtopics: topics,
     },

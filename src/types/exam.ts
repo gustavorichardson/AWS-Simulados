@@ -16,6 +16,11 @@ export const EXAM_DOMAINS: ExamDomain[] = [
 export const VALID_QUESTION_COUNTS = [15, 30, 45, 65] as const;
 export type ValidQuestionCount = (typeof VALID_QUESTION_COUNTS)[number];
 
+export const QUESTION_DIFFICULTIES = ["EASY", "MEDIUM", "HARD"] as const;
+export type QuestionDifficulty = (typeof QUESTION_DIFFICULTIES)[number];
+export type ContentOptionId = "opt_a" | "opt_b" | "opt_c" | "opt_d";
+export type OptionExplanations = Record<ContentOptionId, string>;
+
 export const DONT_KNOW_OPTION_ID = "opt_dont_know";
 export const DONT_KNOW_OPTION_TEXT = "Não sei";
 
@@ -37,6 +42,12 @@ export interface QuestionPublicView {
 
 export type ExamMode = "ESTUDO" | "PROVA";
 export const EXAM_MODES: ExamMode[] = ["ESTUDO", "PROVA"];
+
+export interface StudyFeedback {
+  isCorrect: boolean;
+  correctOptionId: string;
+  optionExplanations: OptionExplanations;
+}
 
 export interface TopicPerformance {
   topic: string;
@@ -61,6 +72,8 @@ export interface QuestionInternal {
   }>;
   correctOptionId: string;
   explanation: string;
+  difficulty?: QuestionDifficulty;
+  optionExplanations?: OptionExplanations;
   documentationUrl?: string;
 }
 

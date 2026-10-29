@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { QuestionPublicView, DONT_KNOW_OPTION_ID, ExamMode } from "../types/exam";
+import {
+  QuestionPublicView,
+  DONT_KNOW_OPTION_ID,
+  ExamMode,
+  QuestionDifficulty,
+  StudyFeedback,
+} from "../types/exam";
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,8 +23,11 @@ interface QuestionCardProps {
   totalQuestions: number;
   allQuestions: QuestionPublicView[];
   answers: Record<string, string>;
+  studyFeedback: Record<string, StudyFeedback>;
+  isConfirmingAnswer: boolean;
   markedForReview: Record<string, boolean>;
   onSelectOption: (optionId: string) => void;
+  onConfirmStudyAnswer: () => void;
   onToggleReview: (questionId: string) => void;
   onJumpToQuestion: (index: number) => void;
   onPrevious: () => void;
@@ -26,6 +35,25 @@ interface QuestionCardProps {
   onFinish: () => void;
   isSubmitting?: boolean;
   mode: ExamMode;
+  difficulty: QuestionDifficulty;
+}
+
+function getOptionExplanation(
+  feedback: StudyFeedback,
+  optionId: string
+): string | undefined {
+  switch (optionId) {
+    case "opt_a":
+      return feedback.optionExplanations.opt_a;
+    case "opt_b":
+      return feedback.optionExplanations.opt_b;
+    case "opt_c":
+      return feedback.optionExplanations.opt_c;
+    case "opt_d":
+      return feedback.optionExplanations.opt_d;
+    default:
+      return undefined;
+  }
 }
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -34,8 +62,11 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   totalQuestions,
   allQuestions,
   answers,
+  studyFeedback,
+  isConfirmingAnswer,
   markedForReview,
   onSelectOption,
+  onConfirmStudyAnswer,
   onToggleReview,
   onJumpToQuestion,
   onPrevious,
@@ -43,6 +74,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onFinish,
   isSubmitting = false,
   mode,
+  difficulty,
 }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showGridDrawer, setShowGridDrawer] = useState(false);
@@ -52,13 +84,25 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const progressPercent = Math.round(((currentIndex + 1) / totalQuestions) * 100);
 
   const selectedOptionId = answers[question.id] ?? null;
+  const feedback = studyFeedback[question.id];
+  const isStudyConfirmed = mode === "ESTUDO" && !!feedback;
   const isMarked = !!markedForReview[question.id];
 
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = mode === "ESTUDO" ? Object.keys(studyFeedback).length : Object.keys(answers).length;
   const reviewedCount = Object.values(markedForReview).filter(Boolean).length;
   const unansweredCount = totalQuestions - answeredCount;
 
   const optionLetters = ["A", "B", "C", "D"];
+  const difficultyLabels: Record<QuestionDifficulty, string> = {
+    EASY: "Fácil",
+    MEDIUM: "Médio",
+    HARD: "Difícil",
+  };
+  const difficultyStyles: Record<QuestionDifficulty, string> = {
+    EASY: "bg-emerald-50 border-emerald-200 text-emerald-700",
+    MEDIUM: "bg-amber-50 border-amber-200 text-amber-800",
+    HARD: "bg-rose-50 border-rose-200 text-rose-700",
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-4">
@@ -69,9 +113,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             <Award className="w-3.5 h-3.5" />
             AWS CLF-C02
           </span>
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold">
-            <Flame className="w-3.5 h-3.5 fill-rose-500 text-rose-600" />
-            Difícil
+          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-bold ${difficultyStyles[difficulty]}`}>
+            <Flame className="w-3.5 h-3.5" />
+            {difficultyLabels[difficulty]}
           </span>
         </div>
 
@@ -123,7 +167,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           <div className="grid grid-cols-5 sm:grid-cols-10 md:grid-cols-13 gap-2">
             {allQuestions.map((q, idx) => {
               const isCurrent = idx === currentIndex;
-              const hasAnswer = !!answers[q.id];
+              const hasAnswer = mode === "ESTUDO" ? !!studyFeedback[q.id] : !!answers[q.id];
               const isRev = !!markedForReview[q.id];
 
               let buttonStyle = "border-slate-200 bg-slate-50 text-slate-700";
@@ -199,6 +243,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           {question.options.map((option, idx) => {
             const isSelected = selectedOptionId === option.id;
             const isDontKnow = option.id === DONT_KNOW_OPTION_ID;
+            const isCorrectOption = feedback?.correctOptionId === option.id;
+            const isSelectedIncorrect = isSelected && feedback && !feedback.isCorrect;
 
             if (isDontKnow) {
               // 5ª Opção Fixa Obrigatória: "Não sei"
@@ -207,11 +253,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   <button
                     type="button"
                     onClick={() => onSelectOption(option.id)}
+                    disabled={isStudyConfirmed}
                     className={`w-full p-4 rounded-xl border text-left flex items-center justify-between transition-all ${
                       isSelected
                         ? "border-sky-500 bg-sky-50/70 text-sky-950 font-semibold ring-2 ring-sky-400/40"
                         : "border-dashed border-slate-300 hover:border-slate-400 bg-slate-50/60 hover:bg-slate-50 text-slate-700"
-                    }`}
+                    } ${isStudyConfirmed ? "cursor-not-allowed" : ""}`}
                   >
                     <div className="flex items-center gap-3">
                       <div
@@ -243,41 +290,119 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             const letter = optionLetters[idx] || `${idx + 1}`;
 
             return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => onSelectOption(option.id)}
-                className={`w-full p-4 rounded-xl border text-left flex items-start justify-between transition-all ${
-                  isSelected
-                    ? "border-amber-500 bg-amber-50/60 text-slate-950 font-medium ring-2 ring-amber-400/40 shadow-sm"
-                    : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/50 text-slate-800"
-                }`}
-              >
-                <div className="flex items-start gap-3.5 pr-3">
-                  <span
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
-                      isSelected
-                        ? "bg-amber-500 text-slate-950"
-                        : "bg-slate-100 text-slate-700"
+              <div key={option.id} className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => onSelectOption(option.id)}
+                  disabled={isStudyConfirmed}
+                  className={`w-full p-4 rounded-xl border text-left flex items-start justify-between transition-all ${
+                    isCorrectOption
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-950 font-medium"
+                      : isSelectedIncorrect
+                        ? "border-rose-400 bg-rose-50 text-rose-950 font-medium"
+                        : isSelected
+                          ? "border-amber-500 bg-amber-50/60 text-slate-950 font-medium ring-2 ring-amber-400/40 shadow-sm"
+                          : "border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50/50 text-slate-800"
+                  } ${isStudyConfirmed ? "cursor-not-allowed" : ""}`}
+                >
+                  <div className="flex items-start gap-3.5 pr-3">
+                    <span
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 transition-colors ${
+                        isCorrectOption
+                          ? "bg-emerald-600 text-white"
+                          : isSelectedIncorrect
+                            ? "bg-rose-500 text-white"
+                            : isSelected
+                              ? "bg-amber-500 text-slate-950"
+                              : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {letter}
+                    </span>
+                    <span className="text-sm leading-relaxed mt-0.5">
+                      {option.text}
+                      {isCorrectOption && (
+                        <span className="block mt-1 text-xs font-bold text-emerald-700">Resposta correta</span>
+                      )}
+                      {isSelectedIncorrect && (
+                        <span className="block mt-1 text-xs font-bold text-rose-700">Sua resposta</span>
+                      )}
+                    </span>
+                  </div>
+                  <div
+                    className={`w-5 h-5 rounded-full border shrink-0 mt-1 flex items-center justify-center transition-colors ${
+                      isCorrectOption
+                        ? "border-emerald-600 bg-emerald-600 text-white"
+                        : isSelected
+                          ? "border-amber-500 bg-amber-500 text-slate-950"
+                          : "border-slate-300 bg-white"
                     }`}
                   >
-                    {letter}
-                  </span>
-                  <span className="text-sm leading-relaxed mt-0.5">{option.text}</span>
-                </div>
-                <div
-                  className={`w-5 h-5 rounded-full border shrink-0 mt-1 flex items-center justify-center transition-colors ${
-                    isSelected
-                      ? "border-amber-500 bg-amber-500 text-slate-950"
-                      : "border-slate-300 bg-white"
-                  }`}
-                >
-                  {isSelected && <div className="w-2 h-2 rounded-full bg-slate-950" />}
-                </div>
-              </button>
+                    {isSelected && <div className={`w-2 h-2 rounded-full ${isCorrectOption ? "bg-white" : "bg-slate-950"}`} />}
+                  </div>
+                </button>
+                {feedback && (
+                  <div
+                    role="status"
+                    className={`ml-10 rounded-lg border px-3 py-2 text-sm ${
+                      isCorrectOption
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                        : "border-slate-200 bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    <p className="font-semibold">
+                      Alternativa {letter} — {isCorrectOption ? "correta" : "incorreta"}
+                      {isSelected && !isCorrectOption ? " (sua resposta)" : ""}
+                    </p>
+                    <p className="mt-1 leading-relaxed">{getOptionExplanation(feedback, option.id)}</p>
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
+
+        {mode === "ESTUDO" && (
+          feedback ? (
+            <section
+              role="status"
+              className={`mb-6 rounded-xl border p-4 ${
+                feedback.isCorrect
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+                  : "border-amber-200 bg-amber-50 text-amber-950"
+              }`}
+            >
+              <p className="font-bold">
+                {selectedOptionId === DONT_KNOW_OPTION_ID
+                  ? `Você marcou “Não sei”. A resposta correta é a alternativa ${
+                      optionLetters[question.options.findIndex((option) => option.id === feedback.correctOptionId)]
+                    }.`
+                  : feedback.isCorrect
+                    ? "Resposta correta!"
+                    : `Resposta incorreta. A alternativa correta é ${
+                        optionLetters[question.options.findIndex((option) => option.id === feedback.correctOptionId)]
+                      }.`}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed">
+                A justificativa de cada alternativa está identificada logo abaixo dela.
+              </p>
+            </section>
+          ) : (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 p-4">
+              <p className="text-sm text-slate-600">
+                Escolha uma alternativa e confirme para ver a explicação.
+              </p>
+              <button
+                type="button"
+                onClick={onConfirmStudyAnswer}
+                disabled={!selectedOptionId || isConfirmingAnswer}
+                className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-all disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isConfirmingAnswer ? "Verificando..." : "Confirmar resposta"}
+              </button>
+            </div>
+          )
+        )}
 
         {/* Controles de Navegação */}
         <div className="flex items-center justify-between pt-4 border-t border-slate-100">

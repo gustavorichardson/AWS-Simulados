@@ -14,13 +14,13 @@ datasource db {
 // ============================================================================
 
 model User {
-  id            String         @id @default(cuid())
+  id            String        @id @default(cuid())
   name          String
-  email         String         @unique
-  emailVerified Boolean        @default(false)
+  email         String        @unique
+  emailVerified Boolean       @default(false)
   image         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   sessions      Session[]
   accounts      Account[]
   profile       Profile?
@@ -94,24 +94,25 @@ model Profile {
 // ============================================================================
 
 model Question {
-  id               String       @id @default(cuid())
-  domain           String       // Um dos 4 domínios oficiais CLF-C02
-  topic            String       // Assunto específico (ex: "IAM Roles", "S3 Storage Classes")
-  stem             String       @db.Text // Enunciado
-  optionA          String       @db.Text
-  optionB          String       @db.Text
-  optionC          String       @db.Text
-  optionD          String       @db.Text
-  correctOptionId  String       // "opt_a" | "opt_b" | "opt_c" | "opt_d"
-  explanation      String       @db.Text // Justificativa técnica liberada pós-prova
-  documentationUrl String?
-  difficulty       String       @default("HARD") // "EASY" | "MEDIUM" | "HARD"
-  stemHash         String       @unique // Hash normalizado do enunciado (deduplicação)
-  source           String       @default("BANCO_INICIAL") // "BANCO_INICIAL" | "GERADA"
-  isActive         Boolean      @default(true)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  answers          ExamAnswer[]
+  id                 String       @id @default(cuid())
+  domain             String // Um dos 4 domínios oficiais CLF-C02
+  topic              String // Assunto específico (ex: "IAM Roles", "S3 Storage Classes")
+  stem               String       @db.Text // Enunciado
+  optionA            String       @db.Text
+  optionB            String       @db.Text
+  optionC            String       @db.Text
+  optionD            String       @db.Text
+  correctOptionId    String // "opt_a" | "opt_b" | "opt_c" | "opt_d"
+  explanation        String       @db.Text // Justificativa técnica liberada pós-prova
+  optionExplanations Json? // Justificativa correspondente a cada id opt_a...opt_d
+  documentationUrl   String?
+  difficulty         String       @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
+  stemHash           String       @unique // Hash normalizado do enunciado (deduplicação)
+  source             String       @default("BANCO_INICIAL") // "BANCO_INICIAL" | "GERADA"
+  isActive           Boolean      @default(true)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  answers            ExamAnswer[]
 
   @@index([domain, topic])
   @@map("questions")
@@ -120,18 +121,19 @@ model Question {
 model ExamAttempt {
   id                   String       @id @default(cuid())
   userId               String
-  questionCount        Int          // 15, 30, 45 ou 65
-  selectedDomains      String[]     // Lista de domínios escolhidos
+  questionCount        Int // 15, 30, 45 ou 65
+  difficulty           String       @default("MEDIUM") // "EASY" | "MEDIUM" | "HARD"
+  selectedDomains      String[] // Lista de domínios escolhidos
   selectedSubtopics    String[]     @default([])
   mode                 String       @default("PROVA") // "PROVA" | "ESTUDO"
   isRecovery           Boolean      @default(false)
-  sourceAttemptId      String?      // Simulado de origem (simulado de recuperação)
+  sourceAttemptId      String? // Simulado de origem (simulado de recuperação)
   correctCount         Int?
   incorrectCount       Int?
   dontKnowCount        Int?
   unansweredCount      Int?
-  percentageScore      Int?         // 0 a 100%
-  estimatedScaledScore Int?         // 100 a 1000
+  percentageScore      Int? // 0 a 100%
+  estimatedScaledScore Int? // 100 a 1000
   isPassed             Boolean?
   startedAt            DateTime     @default(now())
   finishedAt           DateTime?
@@ -146,7 +148,7 @@ model ExamAnswer {
   id               String      @id @default(cuid())
   attemptId        String
   questionId       String
-  selectedOptionId String?     // "opt_a" | "opt_b" | "opt_c" | "opt_d" | "opt_dont_know" | null
+  selectedOptionId String? // "opt_a" | "opt_b" | "opt_c" | "opt_d" | "opt_dont_know" | null
   status           String      @default("NAO_RESPONDIDA") // "CORRETA" | "ERRADA" | "NAO_SEI" | "NAO_RESPONDIDA"
   position         Int         @default(0) // Ordem da questão no simulado
   optionOrder      String[]    @default([]) // Ordem embaralhada das alternativas exibidas

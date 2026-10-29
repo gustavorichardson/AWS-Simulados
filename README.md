@@ -9,9 +9,11 @@ Projeto desenvolvido com Next.js 15 (App Router), TypeScript, Tailwind CSS, Pris
 ## 🎯 Destaques do Projeto
 
 - **Login obrigatório:** a entrada é a página de login/cadastro; simulados, histórico e APIs só funcionam com sessão válida.
-- **Modo Estudo e Modo Prova:** no Estudo, ao finalizar você vê a nota, os relatórios e a explicação de todas as questões; na Prova, somente a nota e os relatórios (sem gabarito nem explicações).
+- **Modo Estudo e Modo Prova:** no Estudo, confirme cada resposta para ver na hora se acertou, qual era a alternativa correta e a explicação; ao finalizar, veja também a nota e os relatórios. Na Prova, veja somente a nota e os relatórios (sem gabarito nem explicações).
 - **Opção "Não sei":** 4 alternativas reais + "Não sei", para separar dúvida de erro.
 - **Tamanhos:** 15, 30, 45 ou 65 questões.
+- **Dificuldade configurável:** Fácil, Médio ou Difícil. A geração por IA permanece sempre dentro do escopo oficial e do nível Cloud Practitioner; no nível Difícil, as alternativas exibem apenas nomes/respostas, sem contexto adicional.
+- **Feedback por alternativa no Modo Estudo:** após confirmar, cada alternativa recebe sua própria justificativa vinculada ao identificador A/B/C/D, evitando trocar o motivo da opção escolhida pelo da resposta correta.
 - **Sem pistas durante a prova:** o navegador recebe só enunciado, domínio e alternativas (embaralhadas por tentativa). Tópico, gabarito e explicação ficam no servidor.
 - **Sem repetição:** questões já apresentadas ao usuário não voltam enquanto houver inéditas; se faltarem, novas questões são geradas, validadas contra duplicatas e pistas, e salvas no banco.
 - **Relatórios:** acertos, erros, "Não sei", não respondidas, percentual, pontuação estimada, desempenho por domínio e por tópico e revisão detalhada (Modo Estudo).

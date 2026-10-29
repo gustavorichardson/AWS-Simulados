@@ -17,6 +17,9 @@ async function signUp(page: Page, name: string, email: string) {
 async function startExam(page: Page, mode: "estudo" | "prova") {
   const startButton = page.getByRole("button", { name: /Escolha o Modo Estudo ou o Modo Prova/ });
   await expect(startButton).toBeDisabled();
+  await expect(page.getByRole("radiogroup", { name: "Dificuldade do simulado" })).toContainText(
+    /Fácil.*Médio.*Difícil/s
+  );
   await page.getByTestId(`modo-${mode}`).click();
   const [response] = await Promise.all([
     page.waitForResponse((r) => r.url().includes("/api/simulados/iniciar")),
@@ -25,8 +28,14 @@ async function startExam(page: Page, mode: "estudo" | "prova") {
   expect(response.status()).toBe(201);
   const body = await response.text();
   expect(body).not.toMatch(/correctOptionId|explanation|"topic"/);
+  const parsedBody = JSON.parse(body) as {
+    attemptId: string;
+    difficulty: string;
+    questions: { id: string; stem: string }[];
+  };
+  expect(parsedBody.difficulty).toBe("MEDIUM");
   await expect(page.getByText(/Questão\s*1\s*de\s*15/)).toBeVisible();
-  return JSON.parse(body) as { attemptId: string; questions: { id: string; stem: string }[] };
+  return parsedBody;
 }
 
 async function finish(page: Page) {
@@ -48,6 +57,45 @@ test("visitante sem login é enviado para a página de login e as APIs recusam a
   await expect(page).toHaveURL(/\/login$/);
   const res = await request.post("/api/simulados/iniciar", { data: { questionCount: 15, mode: "PROVA" } });
   expect(res.status()).toBe(401);
+});
+
+test("tema pode ser escolhido como claro, escuro ou conforme o sistema", async ({ page }) => {
+  await page.goto("/login");
+  const selector = page.getByLabel("Tema de exibição");
+
+  await expect(selector).toHaveValue("system");
+  await expect(selector.locator("option")).toHaveText(["Claro", "Escuro", "Sistema"]);
+
+  await selector.selectOption("dark");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(page.locator(".min-h-screen").first()).toHaveCSS(
+    "background-color",
+    "rgb(2, 6, 23)"
+  );
+  await selector.selectOption("light");
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await expect(page.locator(".min-h-screen").first()).toHaveCSS(
+    "background-color",
+    "rgb(248, 250, 252)"
+  );
+  await selector.selectOption("system");
+});
+
+test("get-session expõe os dados permitidos e não serializa o token", async ({ page }) => {
+  await signUp(page, "Aluno Sessão", `sessao.${stamp}@teste.local`);
+  const session = await page.evaluate(async () => {
+    const response = await fetch("/api/auth/get-session");
+    return response.json();
+  });
+
+  expect(session.session).toHaveProperty("expiresAt");
+  expect(session.session).not.toHaveProperty("token");
+  expect(session.user).toMatchObject({
+    name: "Aluno Sessão",
+    email: `sessao.${stamp}@teste.local`,
+    emailVerified: false,
+  });
+  expect(session.user).toHaveProperty("id");
 });
 
 test("Modo Prova: sem pistas durante a prova e sem gabarito/explicação no resultado", async ({ page }) => {
@@ -77,6 +125,14 @@ test("Modo Estudo: revisão detalhada com explicações; isolamento entre contas
   await signUp(page, "Aluno Estudo", `estudo.${stamp}@teste.local`);
   const exam = await startExam(page, "estudo");
   await page.getByRole("button", { name: "Não sei" }).click();
+  await Promise.all([
+    page.waitForResponse((response) => response.url().includes("/api/simulados/") && response.url().includes("/progresso")),
+    page.getByRole("button", { name: "Confirmar resposta" }).click(),
+  ]);
+  await expect(
+    page.locator('[role="status"]').filter({ hasText: /Alternativa [A-D] —/ }).first()
+  ).toContainText(/Alternativa [A-D] — (correta|incorreta)/);
+  await expect(page.getByRole("button", { name: "Confirmar resposta" })).toHaveCount(0);
   const data = await finish(page);
   expect(data.result.detailedAnswers).toHaveLength(15);
 
