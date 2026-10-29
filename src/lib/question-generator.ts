@@ -190,7 +190,8 @@ async function generateMissingQuestions(
     difficulty: QuestionDifficulty;
     direction?: "MAIS_FACIL" | "MAIS_DIFICIL";
     topic: string;
-  }> = []
+  }> = [],
+  relatedSubtopics: string[] = []
 ): Promise<QuestionInternal[]> {
   const targetSubtopics =
     subtopics.length > 0
@@ -243,6 +244,7 @@ async function generateMissingQuestions(
               difficulty,
               domain: domains.length === 1 ? domains[0] : undefined,
               subtopics: b.subtopics,
+              relatedSubtopics,
               existingHashes,
               existingStems: acceptedStems,
               feedbackSignals,
@@ -386,7 +388,8 @@ export async function selectQuestionsForUser(
           params.difficulty,
           broaderTopics,
           pool.map((question) => question.stem),
-          feedbackSignals
+          feedbackSignals,
+          focusSubtopics
         );
         generated.forEach(add);
       } catch (error) {

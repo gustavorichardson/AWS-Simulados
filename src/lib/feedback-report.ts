@@ -73,45 +73,52 @@ export async function getFeedbackReport() {
 
   const recurrentFeedbackIds = new Set<string>();
   const resolvedFeedbackIds = new Set<string>();
+  const feedbackGroups = new Map<string, FeedbackMetricRecord[]>();
   for (const item of feedback) {
-    const latestImplementation = item.promptUses
-      .map((use) => use.implementedAt)
-      .filter((date): date is Date => date !== null)
-      .sort((a, b) => b.getTime() - a.getTime())[0];
-    if (!latestImplementation) continue;
+    const key = [item.category, item.domain, item.topic].join("|");
+    const group = feedbackGroups.get(key) ?? [];
+    group.push(item);
+    feedbackGroups.set(key, group);
+  }
+  for (const group of feedbackGroups.values()) {
+    group.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const lastFeedback = group[group.length - 1];
+    group.forEach((item, index) => {
+      const latestImplementation = item.promptUses
+        .map((use) => use.implementedAt)
+        .filter((date): date is Date => date !== null)
+        .sort((a, b) => b.getTime() - a.getTime())[0];
+      if (!latestImplementation) return;
 
-    const laterFeedback = feedback.some(
-      (other) =>
-        other.id !== item.id &&
-        other.category === item.category &&
-        other.domain === item.domain &&
-        other.topic === item.topic &&
-        other.createdAt > latestImplementation
-    );
-    if (laterFeedback) recurrentFeedbackIds.add(item.id);
+      const laterFeedback =
+        index < group.length - 1 && lastFeedback.createdAt > latestImplementation;
+      if (laterFeedback) recurrentFeedbackIds.add(item.id);
 
-    const exposedCount = new Set(
-      item.promptUses
-        .filter((use) => use.implementedAt !== null)
-        .flatMap((use) => use.generatedQuestionIds)
-        .filter((questionId) =>
-          (exposureDates.get(questionId) ?? []).some((date) => date > latestImplementation)
-        )
-    ).size;
-    if (!laterFeedback && exposedCount >= 5) resolvedFeedbackIds.add(item.id);
+      const exposedCount = new Set(
+        item.promptUses
+          .filter((use) => use.implementedAt !== null)
+          .flatMap((use) => use.generatedQuestionIds)
+          .filter((questionId) =>
+            (exposureDates.get(questionId) ?? []).some((date) => date > latestImplementation)
+          )
+      ).size;
+      if (!laterFeedback && exposedCount >= 5) resolvedFeedbackIds.add(item.id);
+    });
   }
 
-  const resolutionUpdates = feedback.map((item) =>
-    prisma.questionFeedback.updateMany({
+  const resolutionUpdates = feedback.flatMap((item) => {
+    const shouldBeResolved = resolvedFeedbackIds.has(item.id);
+    if (shouldBeResolved === (item.resolvedAt !== null)) return [];
+    return [
+      prisma.questionFeedback.updateMany({
       where: {
         id: item.id,
-        ...(resolvedFeedbackIds.has(item.id)
-          ? { resolvedAt: null }
-          : { resolvedAt: { not: null } }),
+        ...(shouldBeResolved ? { resolvedAt: null } : { resolvedAt: { not: null } }),
       },
-      data: { resolvedAt: resolvedFeedbackIds.has(item.id) ? now : null },
-    })
-  );
+      data: { resolvedAt: shouldBeResolved ? now : null },
+      }),
+    ];
+  });
   if (resolutionUpdates.length > 0) await prisma.$transaction(resolutionUpdates);
   feedback.forEach((item) => {
     item.resolvedAt = resolvedFeedbackIds.has(item.id) ? now : null;

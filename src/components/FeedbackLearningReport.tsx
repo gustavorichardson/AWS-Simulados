@@ -156,7 +156,7 @@ export function FeedbackLearningReport() {
 
         <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
           <div className="rounded-xl border border-slate-200 p-4">
-            <h3 className="text-xs font-bold text-slate-800">Histórico diário — feedbacks recebidos</h3>
+            <h3 className="text-xs font-bold text-slate-800">Histórico diário acumulado — feedbacks recebidos</h3>
             {report.history.length ? (
               <svg viewBox="0 0 600 125" role="img" aria-label="Gráfico histórico de feedbacks recebidos" className="mt-3 h-32 w-full">
                 <line x1="0" y1="110" x2="600" y2="110" stroke="#cbd5e1" />
@@ -171,11 +171,11 @@ export function FeedbackLearningReport() {
             <h3 className="text-xs font-bold text-slate-800">Qualidade observada nos últimos 30 dias</h3>
             <p className="mt-2 text-sm font-bold text-slate-900">{trendLabel[report.trend.classification]}</p>
             <p className="mt-1 text-xs text-slate-600">
-              Taxa: {report.trend.current30DayRate ?? "—"} feedbacks por 100 respostas concluídas; período anterior:{" "}
+              Taxa: {report.trend.current30DayRate ?? "—"} feedbacks por 100 questões apresentadas em simulados concluídos; período anterior:{" "}
               {report.trend.previous30DayRate ?? "—"}.
             </p>
             <p className="mt-2 text-[11px] text-slate-500">
-              Amostra: {report.trend.currentFeedbackCount} feedbacks / {report.trend.currentExposureCount} respostas atuais e{" "}
+              Amostra: {report.trend.currentFeedbackCount} feedbacks / {report.trend.currentExposureCount} questões expostas atuais e{" "}
               {report.trend.previousFeedbackCount} / {report.trend.previousExposureCount} no período anterior.
               {!report.trend.enoughData && " A classificação só aparece com amostra mínima suficiente."}
             </p>

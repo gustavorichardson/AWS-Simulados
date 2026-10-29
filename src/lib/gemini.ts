@@ -90,6 +90,8 @@ export interface GenerateQuestionsOptions {
   domain?: ExamDomain;
   /** Subtópicos permitidos. Questões fora desta lista são descartadas. */
   subtopics?: string[];
+  /** Conceitos que podem aparecer como contexto ou distratores nas questões. */
+  relatedSubtopics?: string[];
   /** Hashes de enunciados já existentes (banco + histórico do usuário). */
   existingHashes?: Set<string>;
   /** Enunciados já existentes para detecção de duplicatas aproximadas. */
@@ -157,6 +159,9 @@ export function buildQuestionPrompt(options: GenerateQuestionsOptions): string {
           .map((s) => `"${s}"`)
           .join(", ")}.`
       : "Distribua de forma balanceada entre os subtópicos do exame CLF-C02.";
+  const relatedTopics = options.relatedSubtopics?.length
+    ? `Nas questões dos demais subtópicos, inclua estes conceitos de forma contextual quando relevante, como resposta correta ou distrator plausível, variando o raciocínio; não force que sejam sempre a resposta: ${options.relatedSubtopics.join(", ")}.`
+    : "";
 
   const avoid = (options.existingStems ?? [])
     .slice(-40)
@@ -189,6 +194,7 @@ REQUISITOS OBRIGATÓRIOS:
 1. Idioma: português brasileiro.
 2. Domínio de foco: ${domainTarget}.
 3. ${subtopicsTarget}
+${relatedTopics}
 4. Exatamente quatro alternativas com ids 'opt_a', 'opt_b', 'opt_c' e 'opt_d', e apenas UMA correta ('correctOptionId').
 5. Não inclua a opção 'Não sei'.
 6. 'explanation' resume por que a resposta correta atende ao enunciado.

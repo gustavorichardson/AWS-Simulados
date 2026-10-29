@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   const session = await getServerSession();
 
   if (!session?.user) {
-    redirect("/login");
+    redirect("/login?motivo=sessao-expirada");
   }
 
   // 2. Busca ou cria o Perfil do estudante de ADS

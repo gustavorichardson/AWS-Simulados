@@ -18,10 +18,12 @@ export async function getServerSession() {
     select: { id: true, createdAt: true, updatedAt: true, expiresAt: true },
   });
   if (!persisted) return null;
-  if (isSessionExpired(persisted, new Date(), sessionPolicy)) {
+  const now = new Date();
+  if (isSessionExpired(persisted, now, sessionPolicy)) {
     await prisma.session.deleteMany({ where: { id: persisted.id } });
     return null;
   }
+  await prisma.session.update({ where: { id: persisted.id }, data: { updatedAt: now } });
   return session;
 }
 

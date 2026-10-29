@@ -13,12 +13,17 @@ Projeto desenvolvido com Next.js 15 (App Router), TypeScript, Tailwind CSS, Pris
 - **Opção "Não sei":** 4 alternativas reais + "Não sei", para separar dúvida de erro.
 - **Tamanhos:** 15, 30, 45 ou 65 questões.
 - **Dificuldade configurável:** Fácil, Médio ou Difícil. A geração por IA permanece sempre dentro do escopo oficial e do nível Cloud Practitioner; no nível Difícil, as alternativas exibem apenas nomes/respostas, sem contexto adicional.
+- **Estrutura de dificuldade distinta:** Fácil usa enunciados curtos e intuitivos; Médio usa enunciados elaborados e alternativas objetivas; Difícil exige enunciados longos e alternativas diretas. A IA recebe regras explícitas para criar distratores plausíveis e uma única resposta correta.
 - **Feedback por alternativa no Modo Estudo:** após confirmar, cada alternativa recebe sua própria justificativa vinculada ao identificador A/B/C/D, evitando trocar o motivo da opção escolhida pelo da resposta correta.
+- **Alternativas desconhecidas:** marque independentemente quais opções ainda não conhece; elas ficam associadas à questão/conceito no relatório e não interferem na resposta nem na nota.
+- **Feedback contínuo de qualidade:** no Modo Estudo, sinalize questão errada, repetida ou com dificuldade incorreta. Os registros ficam no PostgreSQL e são incorporados a prompts de futuras gerações; o modelo não é considerado treinado automaticamente.
+- **Monitoramento da geração por feedback:** o dashboard mostra feedback recebido, enviado aos prompts, associado a questões geradas, pendente e resolvido somente após exposição e ausência observada de reincidência. O histórico diário e as taxas normalizadas por respostas concluídas ficam persistidos.
 - **Sem pistas durante a prova:** o navegador recebe só enunciado, domínio e alternativas (embaralhadas por tentativa). Tópico, gabarito e explicação ficam no servidor.
 - **Sem repetição:** questões já apresentadas ao usuário não voltam enquanto houver inéditas; se faltarem, novas questões são geradas, validadas contra duplicatas e pistas, e salvas no banco.
 - **Relatórios:** acertos, erros, "Não sei", não respondidas, percentual, pontuação estimada, desempenho por domínio e por tópico e revisão detalhada (Modo Estudo).
-- **"Gerar simulado com os tópicos em que errei":** novo simulado só com os tópicos de erro/"Não sei", sem reutilizar questões vistas.
+- **"Gerar simulado com os tópicos em que errei":** pelo menos 40% das questões abordam diretamente cada conjunto de subtópicos fracos; as demais exploram o mesmo domínio, usando esses conceitos como contexto ou distratores plausíveis. Questões já vistas não são reutilizadas.
 - **Progresso salvo no servidor:** recarregar a página ou voltar pelo histórico continua o simulado.
+- **Expiração de sessão:** sessão inválida por inatividade (30 minutos por padrão) ou por validade máxima (7 dias), verificada no servidor. Os limites podem ser ajustados com `AUTH_SESSION_IDLE_MINUTES` e `AUTH_SESSION_MAX_DAYS`.
 
 ---
 
@@ -54,12 +59,17 @@ Copy-Item .env.example .env.local
 ```
 Abra `.env.local` e configure a senha do seu usuário PostgreSQL local.
 
-### 4. Executar os Testes Automatizados
+### 4. Aplicar as Migrations no PostgreSQL Local
+```powershell
+npx prisma migrate deploy
+```
+
+### 5. Executar os Testes Automatizados
 ```powershell
 npm run test
 ```
 
-### 5. Iniciar o Servidor de Desenvolvimento
+### 6. Iniciar o Servidor de Desenvolvimento
 ```powershell
 npm run dev
 ```
@@ -89,15 +99,17 @@ src/
 │   ├── page.tsx                  # Redireciona para /login ou /simulado
 │   ├── login/, cadastro/         # Páginas públicas (redirecionam se já logado)
 │   ├── simulado/page.tsx         # Configuração, prova e resultado (protegida)
-│   ├── dashboard/page.tsx        # Histórico do usuário (protegida)
-│   └── api/simulados/...         # iniciar, [id], progresso, finalizar, resultado, recuperacao
-├── components/                   # SimuladoClient, ExamConfigCard, QuestionCard, ExamSummary, Header
+│   ├── dashboard/page.tsx        # Histórico e relatório de feedback (protegida)
+│   └── api/                      # simulados e relatório de feedback
+├── components/                   # UI do simulado, resultado e monitoramento
 ├── lib/
 │   ├── exam-service.ts           # Regras do simulado com verificação de posse
 │   ├── question-generator.ts     # Seleção sem repetição + geração quando faltar
 │   ├── question-quality.ts       # Duplicatas aproximadas e detecção de pistas
 │   ├── gemini.ts                 # Geração de questões (somente servidor)
 │   ├── examEngine.ts             # Sanitização e correção
+│   ├── feedback-report.ts        # Métricas observadas e snapshots diários
+│   ├── session-policy.ts         # Limites de inatividade e validade máxima
 │   └── api.ts, auth.ts, server-auth.ts
 ├── middleware.ts                 # Bloqueia páginas/APIs sem cookie de sessão
 └── data/mockQuestions.ts         # Banco inicial (66 questões)

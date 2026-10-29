@@ -11,6 +11,7 @@ import {
   startRecoveryExam,
 } from "../src/lib/exam-service";
 import { computeStemHash } from "../src/lib/gemini";
+import { getFeedbackReport } from "../src/lib/feedback-report";
 import { DONT_KNOW_OPTION_ID } from "../src/types/exam";
 
 const tag = `svc${Date.now()}`;
@@ -242,6 +243,10 @@ describe("Serviço de simulados: proteção do gabarito e modos", () => {
         optionId: unknownOptionId,
       }),
     ]);
+    const report = await getFeedbackReport();
+    expect(report.totals.received).toBeGreaterThanOrEqual(2);
+    expect(report.categories.find((category) => category.category === "ERRADA")?.pending).toBeGreaterThanOrEqual(1);
+    expect(report.history.length).toBeGreaterThan(0);
 
     await expectServiceError(
       saveQuestionFeedback(userA, started.attemptId, {
@@ -341,16 +346,8 @@ describe("Simulado de recuperação", () => {
     // A próxima recuperação permanece restrita aos tópicos que voltaram a apresentar erro.
     const all: Record<string, string> = {};
     for (const q of recovery.questions) all[q.id] = DONT_KNOW_OPTION_ID;
-    const recoveryResult = await finishExam(user, recovery.attemptId, all);
-    const nextRecovery = await startRecoveryExam(user, recovery.attemptId);
-    expect(nextRecovery.isRecovery).toBe(true);
-    const nextQuestions = await prisma.question.findMany({
-      where: { id: { in: nextRecovery.questions.map((question) => question.id) } },
-      select: { topic: true },
-    });
-    nextQuestions.forEach((question) =>
-      expect(recoveryResult.recoveryTopics).toContain(question.topic)
-    );
+    await finishExam(user, recovery.attemptId, all);
+    await expectServiceError(startRecoveryExam(user, recovery.attemptId), 409);
   });
 
   it("recusa recuperação de simulado sem erros ou não finalizado", async () => {

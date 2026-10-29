@@ -10,7 +10,7 @@ export default async function SimuladoPage({
   searchParams: Promise<{ resultado?: string; continuar?: string }>;
 }) {
   const session = await getServerSession();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) redirect("/login?motivo=sessao-expirada");
 
   const params = await searchParams;
   return (
