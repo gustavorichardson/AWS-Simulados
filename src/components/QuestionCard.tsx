@@ -19,6 +19,9 @@ import {
   AlertTriangle,
   Flame,
   Award,
+  Copy,
+  Gauge,
+  Repeat2,
 } from "lucide-react";
 
 interface QuestionCardProps {
@@ -45,7 +48,7 @@ interface QuestionCardProps {
       reportedAnswer?: string;
       detail?: string;
     }
-  ) => void;
+  ) => Promise<void> | void;
   onToggleReview: (questionId: string) => void;
   onJumpToQuestion: (index: number) => void;
   onPrevious: () => void;
@@ -100,21 +103,67 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showGridDrawer, setShowGridDrawer] = useState(false);
-  const [reportCategory, setReportCategory] = useState<StudyFeedbackCategory>("ERRADA");
+  const [reportCategory, setReportCategory] = useState<StudyFeedbackCategory | null>(null);
   const [issueLocation, setIssueLocation] =
     useState<FeedbackIssueLocation>("ENUNCIADO_INCORRETO");
   const [reportedAnswer, setReportedAnswer] = useState("");
   const [reportDetail, setReportDetail] = useState("");
   const [difficultyDirection, setDifficultyDirection] =
     useState<DifficultyDirection>("MAIS_FACIL");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   useEffect(() => {
-    setReportCategory("ERRADA");
+    setReportCategory(null);
     setIssueLocation("ENUNCIADO_INCORRETO");
     setReportedAnswer("");
     setReportDetail("");
     setDifficultyDirection("MAIS_FACIL");
   }, [question.id]);
+
+  const reportOptions = [
+    { category: "ERRADA", label: "Questão errada", icon: AlertTriangle },
+    { category: "REPETIDA", label: "Questão repetida", icon: Copy },
+    { category: "DIFICULDADE_INCORRETA", label: "Dificuldade inadequada", icon: Gauge },
+    { category: "RESPOSTA_VICIADA", label: "Resposta viciada", icon: Repeat2 },
+  ] as const;
+
+  const selectReportCategory = (category: StudyFeedbackCategory) => {
+    setReportCategory((current) => (current === category ? null : category));
+    setIssueLocation("ENUNCIADO_INCORRETO");
+    setReportedAnswer("");
+    setReportDetail("");
+    const savedDirection = questionFeedback[question.id]?.DIFICULDADE_INCORRETA;
+    setDifficultyDirection(
+      category === "DIFICULDADE_INCORRETA" &&
+        (savedDirection === "MAIS_FACIL" || savedDirection === "MAIS_DIFICIL")
+        ? savedDirection
+        : "MAIS_FACIL"
+    );
+  };
+
+  const submitQuestionReport = async () => {
+    if (!reportCategory || isSubmittingReport) return;
+    if (reportCategory === "RESPOSTA_VICIADA" && !reportedAnswer.trim()) return;
+
+    setIsSubmittingReport(true);
+    try {
+      await onQuestionFeedback(
+        question.id,
+        reportCategory,
+        true,
+        reportCategory === "DIFICULDADE_INCORRETA" ? difficultyDirection : undefined,
+        {
+          ...(reportCategory === "ERRADA" ? { issueLocation } : {}),
+          ...(reportCategory === "RESPOSTA_VICIADA"
+            ? { reportedAnswer: reportedAnswer.trim() }
+            : {}),
+          ...(reportDetail.trim() ? { detail: reportDetail.trim() } : {}),
+        }
+      );
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
 
   const isFirst = currentIndex === 0;
   const isLast = currentIndex === totalQuestions - 1;
@@ -463,117 +512,137 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             <p className="mt-1 text-xs text-slate-500">
               Reports únicos passam por triagem técnica antes de orientar gerações futuras. O report não altera sua resposta ou pontuação.
             </p>
-            <div className="mt-3 space-y-3">
-              <label className="block text-xs font-semibold text-slate-700">
-                Tipo de report
-                <select
-                  value={reportCategory}
-                  onChange={(event) =>
-                    setReportCategory(event.target.value as StudyFeedbackCategory)
-                  }
-                  className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                >
-                  <option value="ERRADA">Questão errada</option>
-                  <option value="REPETIDA">Questão repetida</option>
-                  <option value="DIFICULDADE_INCORRETA">Dificuldade inadequada</option>
-                  <option value="RESPOSTA_VICIADA">Resposta viciada</option>
-                </select>
-              </label>
+            <div className="mt-4 grid grid-cols-2 gap-3" role="group" aria-label="Tipo de report">
+              {reportOptions.map(({ category, label, icon: Icon }) => {
+                const isSelected = reportCategory === category;
+                const isReported = reportedFeedback[category] !== undefined;
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    disabled={isSubmittingReport}
+                    aria-pressed={isSelected}
+                    aria-controls={`report-fields-${question.id}`}
+                    onClick={() => selectReportCategory(category)}
+                    className={`flex min-h-20 items-start gap-3 rounded-xl border p-3 text-left text-sm font-semibold transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70 dark:focus-visible:ring-offset-slate-900 ${
+                      isSelected
+                        ? "border-amber-500 bg-amber-50 text-amber-950 dark:border-amber-500 dark:bg-amber-500/10 dark:text-amber-100"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200 dark:hover:border-slate-500 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <Icon aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0" />
+                    <span className="flex flex-col gap-1">
+                      <span>{label}</span>
+                      {isReported && (
+                        <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                          Registrado
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-              {reportCategory === "ERRADA" && (
-                <fieldset className="flex flex-wrap gap-4 text-xs text-slate-700">
-                  <legend className="mb-2 font-semibold">Onde está o erro?</legend>
-                  {([
-                    ["ENUNCIADO_INCORRETO", "Enunciado incorreto"],
-                    ["RESPOSTA_INCORRETA", "Resposta incorreta"],
-                  ] as const).map(([value, label]) => (
-                    <label key={value} className="inline-flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name={`issue-location-${question.id}`}
-                        value={value}
-                        checked={issueLocation === value}
-                        onChange={() => setIssueLocation(value)}
-                        className="accent-amber-500"
+            <div
+              id={`report-fields-${question.id}`}
+              className={`grid transition-[grid-template-rows,opacity] duration-300 motion-reduce:transition-none ${
+                reportCategory ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+              }`}
+            >
+              <div className="min-h-0 overflow-hidden">
+                {reportCategory && (
+                  <div className="mt-3 space-y-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/50">
+                    {reportCategory === "ERRADA" && (
+                      <fieldset className="flex flex-wrap gap-x-5 gap-y-3 text-sm text-slate-700 dark:text-slate-200">
+                        <legend className="mb-2 text-xs font-semibold">Onde está o erro?</legend>
+                        {([
+                          ["ENUNCIADO_INCORRETO", "Enunciado incorreto"],
+                          ["RESPOSTA_INCORRETA", "Resposta incorreta"],
+                        ] as const).map(([value, label]) => (
+                          <label key={value} className="inline-flex cursor-pointer items-center gap-2">
+                            <input
+                              type="radio"
+                              name={`issue-location-${question.id}`}
+                              value={value}
+                              checked={issueLocation === value}
+                              required
+                              onChange={() => setIssueLocation(value)}
+                              className="accent-amber-500"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </fieldset>
+                    )}
+
+                    {reportCategory === "RESPOSTA_VICIADA" && (
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        Qual resposta, serviço ou conceito está se repetindo?
+                        <input
+                          value={reportedAnswer}
+                          onChange={(event) => setReportedAnswer(event.target.value)}
+                          maxLength={200}
+                          required
+                          aria-required="true"
+                          className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                          placeholder="Ex.: Amazon GuardDuty"
+                        />
+                      </label>
+                    )}
+
+                    {reportCategory === "DIFICULDADE_INCORRETA" && (
+                      <fieldset className="flex flex-wrap items-center gap-x-5 gap-y-3 text-sm text-slate-700 dark:text-slate-200">
+                        <legend className="mb-2 text-xs font-semibold">Como a dificuldade deveria ser?</legend>
+                        {([
+                          ["MAIS_FACIL", "Mais fácil do que deveria"],
+                          ["MAIS_DIFICIL", "Mais difícil do que deveria"],
+                        ] as const).map(([direction, label]) => (
+                          <label key={direction} className="inline-flex cursor-pointer items-center gap-2">
+                            <input
+                              type="radio"
+                              name={`difficulty-${question.id}`}
+                              checked={difficultyDirection === direction}
+                              onChange={() => setDifficultyDirection(direction)}
+                              className="accent-amber-500"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </fieldset>
+                    )}
+
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200">
+                      {reportCategory === "ERRADA"
+                        ? "Detalhes adicionais (opcional)"
+                        : reportCategory === "REPETIDA"
+                          ? "Justificativa ou detalhes (opcional)"
+                          : reportCategory === "DIFICULDADE_INCORRETA"
+                            ? "Por que a dificuldade está inadequada? (opcional)"
+                            : "Detalhes adicionais (opcional)"}
+                      <textarea
+                        value={reportDetail}
+                        onChange={(event) => setReportDetail(event.target.value)}
+                        maxLength={2000}
+                        rows={2}
+                        className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                       />
-                      {label}
                     </label>
-                  ))}
-                </fieldset>
-              )}
 
-              {reportCategory === "RESPOSTA_VICIADA" && (
-                <label className="block text-xs font-semibold text-slate-700">
-                  Qual resposta/serviço está se repetindo?
-                  <input
-                    value={reportedAnswer}
-                    onChange={(event) => setReportedAnswer(event.target.value)}
-                    maxLength={200}
-                    required
-                    className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                    placeholder="Ex.: Amazon GuardDuty"
-                  />
-                </label>
-              )}
-
-              {reportCategory === "DIFICULDADE_INCORRETA" && (
-              <fieldset className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-700">
-                <legend className="sr-only">Ajuste de dificuldade</legend>
-                {([
-                  ["MAIS_FACIL", "Mais fácil do que deveria"],
-                  ["MAIS_DIFICIL", "Mais difícil do que deveria"],
-                ] as const).map(([direction, label]) => (
-                  <label key={direction} className="inline-flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name={`difficulty-${question.id}`}
-                      checked={
-                        (reportedFeedback.DIFICULDADE_INCORRETA as DifficultyDirection | undefined) === direction ||
-                        (reportedFeedback.DIFICULDADE_INCORRETA === undefined &&
-                          difficultyDirection === direction)
+                    <button
+                      type="button"
+                      disabled={
+                        isSubmittingReport ||
+                        (reportCategory === "RESPOSTA_VICIADA" && !reportedAnswer.trim())
                       }
-                      onChange={() => setDifficultyDirection(direction)}
-                      className="accent-amber-500"
-                    />
-                    {label}
-                  </label>
-                ))}
-              </fieldset>
-              )}
-
-              <label className="block text-xs font-semibold text-slate-700">
-                Detalhe opcional
-                <textarea
-                  value={reportDetail}
-                  onChange={(event) => setReportDetail(event.target.value)}
-                  maxLength={2000}
-                  rows={2}
-                  className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-                />
-              </label>
-
-              <button
-                type="button"
-                disabled={reportCategory === "RESPOSTA_VICIADA" && !reportedAnswer.trim()}
-                onClick={() =>
-                  onQuestionFeedback(
-                    question.id,
-                    reportCategory,
-                    true,
-                    reportCategory === "DIFICULDADE_INCORRETA" ? difficultyDirection : undefined,
-                    {
-                      ...(reportCategory === "ERRADA" ? { issueLocation } : {}),
-                      ...(reportCategory === "RESPOSTA_VICIADA"
-                        ? { reportedAnswer: reportedAnswer.trim() }
-                        : {}),
-                      ...(reportDetail.trim() ? { detail: reportDetail.trim() } : {}),
-                    }
-                  )
-                }
-                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Registrar report
-              </button>
+                      onClick={submitQuestionReport}
+                      className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400"
+                    >
+                      {isSubmittingReport ? "Registrando..." : "Registrar report"}
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </section>
         )}

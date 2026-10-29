@@ -55,6 +55,17 @@ async function finish(page: Page) {
   return result;
 }
 
+async function submitQuestionReport(page: Page) {
+  const [response] = await Promise.all([
+    page.waitForResponse((response) =>
+      response.url().includes("/api/simulados/") && response.url().endsWith("/feedback")
+    ),
+    page.getByRole("button", { name: "Registrar report" }).click(),
+  ]);
+  expect(response.status()).toBe(200);
+  return response.request().postDataJSON() as Record<string, unknown>;
+}
+
 test("visitante sem login é enviado para a página de login e as APIs recusam acesso", async ({ page, request }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/\/login$/);
@@ -142,23 +153,78 @@ test("Modo Estudo: revisão detalhada com explicações; isolamento entre contas
   ]);
   expect(unknownResponse.status()).toBe(200);
 
-  await page.getByLabel("Tipo de report").selectOption("REPETIDA");
-  const [repeatedFeedbackResponse] = await Promise.all([
-    page.waitForResponse((response) =>
-      response.url().includes("/api/simulados/") && response.url().endsWith("/feedback")
-    ),
-    page.getByRole("button", { name: "Registrar report" }).click(),
-  ]);
-  expect(repeatedFeedbackResponse.status()).toBe(200);
-  await page.getByLabel("Tipo de report").selectOption("DIFICULDADE_INCORRETA");
+  const reportGrid = page.getByRole("group", { name: "Tipo de report" });
+  await expect(reportGrid.getByRole("button")).toHaveCount(4);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const gridColumns = await reportGrid.evaluate((element) =>
+    getComputedStyle(element).gridTemplateColumns.split(" ").length
+  );
+  expect(gridColumns).toBe(2);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  const themeSelector = page.getByLabel("Tema de exibição");
+  await themeSelector.selectOption("dark");
+  const wrongReport = page.getByRole("button", { name: /^Questão errada/ });
+  await wrongReport.focus();
+  await wrongReport.press("Enter");
+  await expect(wrongReport).toHaveAttribute("aria-pressed", "true");
+  await expect(wrongReport).toHaveCSS("border-color", "rgb(245, 158, 11)");
+  await themeSelector.selectOption("light");
+  await expect(wrongReport).toHaveCSS("background-color", "rgb(255, 251, 235)");
+  await wrongReport.press("Space");
+  await expect(wrongReport).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("radio", { name: "Enunciado incorreto" })).toHaveCount(0);
+  await wrongReport.press("Enter");
+  await expect(page.getByRole("radio", { name: "Enunciado incorreto" })).toBeVisible();
+  await page.getByRole("radio", { name: "Resposta incorreta" }).check();
+  await page.getByLabel("Detalhes adicionais (opcional)").fill("A resposta indicada não corresponde ao enunciado.");
+  const wrongPayload = await submitQuestionReport(page);
+  expect(wrongPayload).toMatchObject({
+    category: "ERRADA",
+    issueLocation: "RESPOSTA_INCORRETA",
+    detail: "A resposta indicada não corresponde ao enunciado.",
+  });
+  expect(wrongPayload).not.toHaveProperty("difficultyDirection");
+  expect(wrongPayload).not.toHaveProperty("reportedAnswer");
+
+  const repeatedReport = page.getByRole("button", { name: /^Questão repetida/ });
+  await repeatedReport.click();
+  await expect(page.getByRole("radio", { name: "Resposta incorreta" })).toHaveCount(0);
+  await expect(page.getByLabel("Justificativa ou detalhes (opcional)")).toHaveValue("");
+  await page.getByLabel("Justificativa ou detalhes (opcional)").fill("Encontrei esta questão em outro simulado.");
+  const repeatedPayload = await submitQuestionReport(page);
+  expect(repeatedPayload).toMatchObject({
+    category: "REPETIDA",
+    detail: "Encontrei esta questão em outro simulado.",
+  });
+  expect(repeatedPayload).not.toHaveProperty("issueLocation");
+  expect(repeatedPayload).not.toHaveProperty("reportedAnswer");
+
+  await page.getByRole("button", { name: /^Dificuldade inadequada/ }).click();
+  await expect(
+    page.getByLabel("Por que a dificuldade está inadequada? (opcional)")
+  ).toHaveValue("");
   await page.getByRole("radio", { name: "Mais difícil do que deveria" }).check();
-  const [difficultyFeedbackResponse] = await Promise.all([
-    page.waitForResponse((response) =>
-      response.url().includes("/api/simulados/") && response.url().endsWith("/feedback")
-    ),
-    page.getByRole("button", { name: "Registrar report" }).click(),
-  ]);
-  expect(difficultyFeedbackResponse.status()).toBe(200);
+  const difficultyPayload = await submitQuestionReport(page);
+  expect(difficultyPayload).toMatchObject({
+    category: "DIFICULDADE_INCORRETA",
+    difficultyDirection: "MAIS_DIFICIL",
+  });
+  expect(difficultyPayload).not.toHaveProperty("issueLocation");
+  expect(difficultyPayload).not.toHaveProperty("reportedAnswer");
+
+  const biasedReport = page.getByRole("button", { name: /^Resposta viciada/ });
+  await biasedReport.click();
+  const reportedAnswer = page.getByLabel("Qual resposta, serviço ou conceito está se repetindo?");
+  await expect(page.getByRole("button", { name: "Registrar report" })).toBeDisabled();
+  await reportedAnswer.fill("Amazon GuardDuty");
+  const biasedPayload = await submitQuestionReport(page);
+  expect(biasedPayload).toMatchObject({
+    category: "RESPOSTA_VICIADA",
+    reportedAnswer: "Amazon GuardDuty",
+  });
+  expect(biasedPayload).not.toHaveProperty("issueLocation");
+  expect(biasedPayload).not.toHaveProperty("difficultyDirection");
 
   await page.getByRole("button", { name: "Não sei" }).click();
   await Promise.all([
