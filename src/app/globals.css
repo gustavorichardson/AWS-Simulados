@@ -18,75 +18,73 @@ body {
   min-height: 100vh;
 }
 
-@layer base {
-  .dark {
-    color-scheme: dark;
-    --background: #0f172a;
-    --foreground: #f1f5f9;
-    --surface: #1e293b;
-    --surface-muted: #334155;
-    --border: #475569;
-    --text-secondary: #e2e8f0;
-  }
+.dark {
+  color-scheme: dark;
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --surface: #1e293b;
+  --surface-muted: #334155;
+  --border: #475569;
+  --text-secondary: #e2e8f0;
+}
 
-  .dark body {
-    background: var(--background);
-    color: var(--foreground);
-  }
+.dark body {
+  background: var(--background);
+  color: var(--foreground);
+}
 
-  .dark .bg-slate-50 {
-    background-color: var(--background);
-  }
+.dark .bg-slate-50 {
+  background-color: var(--background);
+}
 
-  .dark .bg-white {
-    background-color: var(--surface);
-  }
+.dark .bg-white {
+  background-color: var(--surface);
+}
 
-  .dark .bg-slate-100 {
-    background-color: var(--surface-muted);
-  }
+.dark .bg-slate-100 {
+  background-color: var(--surface-muted);
+}
 
-  .dark .bg-slate-200 {
-    @apply bg-slate-700;
-  }
+.dark .bg-slate-200 {
+  @apply bg-slate-700;
+}
 
-  .dark .text-slate-900 {
-    color: var(--foreground);
-  }
+.dark .text-slate-900 {
+  color: var(--foreground);
+}
 
-  .dark .text-slate-800 {
-    @apply text-slate-100;
-  }
+.dark .text-slate-800 {
+  @apply text-slate-100;
+}
 
-  .dark .text-slate-700,
-  .dark .text-slate-600,
-  .dark .text-slate-500,
-  .dark .text-slate-400 {
-    color: var(--text-secondary);
-  }
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: var(--text-secondary);
+}
 
-  .dark .border-slate-100,
-  .dark .border-slate-200,
-  .dark .border-slate-300 {
-    border-color: var(--border);
-  }
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: var(--border);
+}
 
-  .dark input,
-  .dark select,
-  .dark textarea {
-    border-color: var(--border);
-    background-color: var(--surface);
-    color: var(--foreground);
-  }
+.dark input,
+.dark select,
+.dark textarea {
+  border-color: var(--border);
+  background-color: var(--surface);
+  color: var(--foreground);
+}
 
-  .dark input::placeholder,
-  .dark textarea::placeholder {
-    color: #e2e8f0;
-    opacity: 1;
-  }
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #e2e8f0;
+  opacity: 1;
+}
 
-  .dark :focus-visible {
-    outline: 2px solid #fbbf24;
-    outline-offset: 2px;
-  }
+.dark :focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 2px;
 }

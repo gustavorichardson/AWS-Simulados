@@ -77,7 +77,7 @@ test("tema pode ser escolhido como claro, escuro ou conforme o sistema", async (
   await expect(page.locator("html")).toHaveClass(/dark/);
   await expect(page.locator(".min-h-screen").first()).toHaveCSS(
     "background-color",
-    "rgb(2, 6, 23)"
+    "rgb(15, 23, 42)"
   );
   await selector.selectOption("light");
   await expect(page.locator("html")).not.toHaveClass(/dark/);
