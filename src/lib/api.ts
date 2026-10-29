@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "./server-auth";
+import { isAdminUser } from "./admin-auth";
 import { ExamServiceError } from "./exam-service";
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -19,6 +20,29 @@ export function withUser<P = Record<string, string>>(
       const session = await getServerSession();
       if (!session?.user?.id) {
         return NextResponse.json({ error: "Faça login para continuar." }, { status: 401, headers: NO_STORE });
+      }
+      const params = (context?.params ? await context.params : {}) as P;
+      const data = await handler({ req, userId: session.user.id, params });
+      return NextResponse.json(data, { status: successStatus, headers: NO_STORE });
+    } catch (error) {
+      if (error instanceof ExamServiceError) {
+        return NextResponse.json({ error: error.message }, { status: error.status, headers: NO_STORE });
+      }
+      console.error("[api] erro interno:", error);
+      return NextResponse.json({ error: "Erro interno. Tente novamente." }, { status: 500, headers: NO_STORE });
+    }
+  };
+}
+
+export function withAdmin<P = Record<string, string>>(
+  handler: (args: { req: Request; userId: string; params: P }) => Promise<unknown>,
+  successStatus = 200
+) {
+  return async (req: Request, context: RouteContext<P>) => {
+    try {
+      const session = await getServerSession();
+      if (!session?.user?.id || !(await isAdminUser(session.user))) {
+        return NextResponse.json({ error: "Não encontrado." }, { status: 404, headers: NO_STORE });
       }
       const params = (context?.params ? await context.params : {}) as P;
       const data = await handler({ req, userId: session.user.id, params });

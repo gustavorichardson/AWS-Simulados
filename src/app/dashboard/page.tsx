@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getServerSession } from "@/lib/server-auth";
+import { isAdminUser } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
 import {
@@ -12,7 +13,6 @@ import {
   Calendar,
 } from "lucide-react";
 import { DashboardClientControls } from "./DashboardClientControls";
-import { FeedbackLearningReport } from "@/components/FeedbackLearningReport";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,7 @@ export default async function DashboardPage() {
   if (!session?.user) {
     redirect("/login?motivo=sessao-expirada");
   }
+  const isAdmin = await isAdminUser(session.user);
 
   // 2. Busca ou cria o Perfil do estudante de ADS
   let profile = await prisma.profile.findUnique({
@@ -87,6 +88,14 @@ export default async function DashboardPage() {
               <Sparkles className="w-4 h-4" />
               Novo Simulado
             </Link>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="py-2.5 px-4 rounded-xl border border-slate-600 text-slate-100 hover:bg-slate-800 font-bold text-xs sm:text-sm transition-all"
+              >
+                Administração
+              </Link>
+            )}
             <DashboardClientControls />
           </div>
         </div>
@@ -123,10 +132,6 @@ export default async function DashboardPage() {
             <div className="text-3xl font-black text-slate-900">{averageScore}%</div>
             <div className="text-xs text-slate-500 mt-1">Média ponderada de acertos</div>
           </div>
-        </div>
-
-        <div className="mb-8">
-          <FeedbackLearningReport />
         </div>
 
         {/* Histórico Recente de Simulados */}

@@ -97,7 +97,7 @@ export function FeedbackLearningReport() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/feedback/relatorio", { cache: "no-store" })
+    fetch("/api/admin/feedback/relatorio", { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error ?? "Não foi possível carregar o relatório.");
