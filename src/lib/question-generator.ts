@@ -248,7 +248,8 @@ async function generateMissingQuestions(
     reportedAnswer: string | null;
     detail: string | null;
   }> = [],
-  relatedSubtopics: string[] = []
+  relatedSubtopics: string[] = [],
+  startingCorrectPosition = 0
 ): Promise<QuestionInternal[]> {
   const targetSubtopics =
     subtopics.length > 0
@@ -323,7 +324,9 @@ async function generateMissingQuestions(
         if (existingHashes.has(hash) || isNearDuplicate(q.stem, acceptedStems)) continue;
         existingHashes.add(hash);
         acceptedStems.push(q.stem);
-        accepted.push(balanceCorrectOptionPosition(q, accepted.length % 4));
+        accepted.push(
+          balanceCorrectOptionPosition(q, (startingCorrectPosition + accepted.length) % 4)
+        );
       }
     }
   }
@@ -411,6 +414,7 @@ export async function selectQuestionsForUser(
     const broaderRows = shuffle(pool.filter((question) => !focusSubtopics.includes(question.topic)));
     const unseen = (rows: typeof pool) => rows.filter((question) => !lastSeen.has(question.id));
     const directQuestions: QuestionInternal[] = [];
+    let generatedPositionOffset = 0;
     const addDirect = (question: QuestionInternal) => {
       if (directQuestions.length < directTarget) directQuestions.push(question);
     };
@@ -420,6 +424,7 @@ export async function selectQuestionsForUser(
     if (directQuestions.length < directTarget && isAiGenerationConfigured()) {
       feedbackSignals = await loadRelevantFeedback(params.domains, focusSubtopics);
       try {
+        const generatedCountBefore = directQuestions.length;
         const generated = await generateMissingQuestions(
           directTarget - directQuestions.length,
           params.domains,
@@ -429,6 +434,7 @@ export async function selectQuestionsForUser(
           feedbackSignals
         );
         generated.forEach(addDirect);
+        generatedPositionOffset += directQuestions.length - generatedCountBefore;
       } catch (error) {
         console.error("[questoes] geração de recuperação direta indisponível:", (error as Error).message);
       }
@@ -453,7 +459,8 @@ export async function selectQuestionsForUser(
           broaderTopics,
           pool.map((question) => question.stem),
           feedbackSignals,
-          focusSubtopics
+          focusSubtopics,
+          generatedPositionOffset
         );
         generated.forEach(add);
       } catch (error) {
@@ -480,6 +487,7 @@ export async function selectQuestionsForUser(
     const selectedQuestions = [...selectedGroup];
     const complementaryQuestions = [...complementaryGroup];
     const knownStems = pool.map((question) => question.stem);
+    let generatedPositionOffset = 0;
     const feedbackSignals = await loadRelevantFeedback(
       params.domains,
       [...params.subtopics, ...complementaryTopics]
@@ -496,13 +504,13 @@ export async function selectQuestionsForUser(
           feedbackSignals,
           complementaryTopics
         );
-        selectedQuestions.push(
-          ...selectBalancedByTopic(
-            generated,
-            params.subtopics,
-            selectedTarget - selectedQuestions.length
-          )
+        const selectedGenerated = selectBalancedByTopic(
+          generated,
+          params.subtopics,
+          selectedTarget - selectedQuestions.length
         );
+        selectedQuestions.push(...selectedGenerated);
+        generatedPositionOffset += selectedGenerated.length;
       } catch (error) {
         console.error("[questoes] geração de subtópicos selecionados indisponível:", (error as Error).message);
       }
@@ -517,7 +525,8 @@ export async function selectQuestionsForUser(
           complementaryTopics,
           knownStems,
           feedbackSignals,
-          params.subtopics
+          params.subtopics,
+          generatedPositionOffset
         );
         complementaryQuestions.push(
           ...selectBalancedByTopic(

@@ -56,6 +56,8 @@ vi.mock("../src/lib/feedback-triage", () => ({
 
 import { prisma } from "../src/lib/prisma";
 import {
+  ensureQuestionBank,
+  getComplementarySubtopics,
   InsufficientQuestionsError,
   selectQuestionsForUser,
 } from "../src/lib/question-generator";
@@ -115,6 +117,23 @@ describe("Geração de questões quando o banco não tem inéditas suficientes",
         topic: TOPIC,
       },
     });
+    await ensureQuestionBank();
+    const alreadyAvailableQuestions = await prisma.question.findMany({
+      where: {
+        domain: "Domínio 2: Segurança e Conformidade",
+        difficulty: "EASY",
+        topic: { in: [TOPIC, ...getComplementarySubtopics([TOPIC])] },
+        id: { not: feedbackQuestion.id },
+      },
+      select: { id: true },
+    });
+    await prisma.examAnswer.createMany({
+      data: alreadyAvailableQuestions.map((question, position) => ({
+        attemptId: sourceAttempt.id,
+        questionId: question.id,
+        position,
+      })),
+    });
 
     const questions = await selectQuestionsForUser({
       userId,
@@ -144,6 +163,20 @@ describe("Geração de questões quando o banco não tem inéditas suficientes",
     const generatedCorrectIds = persisted
       .filter((question) => question.source === "GERADA" && question.stem.includes(tag))
       .map((question) => question.correctOptionId);
+    expect(generatedCorrectIds).toHaveLength(14);
+    const generatedQuestions = questions.filter((question) => question.id.startsWith(`gen_${tag}_`));
+    expect(generatedQuestions).toHaveLength(14);
+    generatedQuestions.forEach((question) => {
+      expect(question.options).toHaveLength(4);
+      const correctOption = question.options.find(
+        (option) => option.id === question.correctOptionId
+      );
+      const correctExplanation = Object.entries(question.optionExplanations ?? {}).find(
+        ([optionId]) => optionId === question.correctOptionId
+      )?.[1];
+      expect(correctOption?.text).toBe("Opção gama plausível.");
+      expect(correctExplanation).toBe("A alternativa C atende ao requisito deste cenário.");
+    });
     const answerPositionCounts = ["opt_a", "opt_b", "opt_c", "opt_d"].map(
       (optionId) => generatedCorrectIds.filter((id) => id === optionId).length
     );
