@@ -85,6 +85,10 @@ npm run build
 
 Os testes de integração usam PostgreSQL real e criam/excluem registros de teste. Use um banco local dedicado a testes, com as migrations aplicadas, sem dados importantes. A integração Gemini é simulada nos testes; sua execução não comprova a qualidade de respostas de um serviço externo.
 
+## Integração contínua
+
+O workflow [ci.yml](./.github/workflows/ci.yml) executa lint, verificação de tipos, testes e build em pushes para `master` e em pull requests direcionados a `master`. Ele usa `npm ci` com o `package-lock.json`, gera o Prisma Client e aplica as migrations em um PostgreSQL temporário do GitHub Actions, necessário para os testes de persistência e autorização. A chave Gemini fica vazia e as integrações são mockadas nos testes; o workflow não acessa AWS nem executa deploy.
+
 Para os testes de navegador, prepare o build e o Chromium:
 
 ```powershell
