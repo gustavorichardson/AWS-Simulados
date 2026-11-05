@@ -1,147 +1,126 @@
-# ☁️ AWS Simulados — Certificação AWS Certified Cloud Practitioner (CLF-C02)
+# AWS Simulados
 
-Plataforma educacional interativa de simulados para o exame **AWS Certified Cloud Practitioner (CLF-C02)**, desenvolvida com foco em aprendizado real, identificação de lacunas de conhecimento e preparação para certificação.
+Projeto de estudo para praticar conceitos da certificação AWS Certified Cloud Practitioner (CLF-C02), com simulados, histórico e identificação de lacunas de conhecimento.
 
-Projeto desenvolvido com Next.js 15 (App Router), TypeScript, Tailwind CSS, Prisma, Better Auth e PostgreSQL local.
+Desenvolvido por Gustavo, estudante de Análise e Desenvolvimento de Sistemas, como parte de sua preparação para atuar em suporte técnico, infraestrutura e AWS. O projeto permite exercitar configuração de ambiente local, PostgreSQL, diagnóstico de falhas, controle de acesso e testes. Está em desenvolvimento e não representa experiência profissional nem comprovação de domínio full stack.
 
----
+## Apoio de IA generativa
 
-## 🎯 Destaques do Projeto
+O desenvolvimento conta com apoio de IA generativa na elaboração de código, testes, documentação e diagnóstico. Esse apoio não substitui a compreensão do código, a revisão humana e a validação dos resultados. Há também uma integração opcional com Gemini para geração e triagem de questões; ela é diferente do apoio de IA usado no desenvolvimento e fica desativada quando a chave está vazia.
 
-- **Login obrigatório:** a entrada é a página de login/cadastro; simulados, histórico e APIs só funcionam com sessão válida.
-- **Modo Estudo e Modo Prova:** no Estudo, confirme cada resposta para ver na hora se acertou, qual era a alternativa correta e a explicação; ao finalizar, veja também a nota e os relatórios. Na Prova, veja somente a nota e os relatórios (sem gabarito nem explicações).
-- **Opção "Não sei":** 4 alternativas reais + "Não sei", para separar dúvida de erro.
-- **Tamanhos:** 15, 30, 45 ou 65 questões.
-- **Dificuldade configurável:** Fácil, Médio ou Difícil. A geração por IA permanece sempre dentro do escopo oficial e do nível Cloud Practitioner; no nível Difícil, as alternativas exibem apenas nomes/respostas, sem contexto adicional.
-- **Estrutura de dificuldade distinta:** Fácil valida enunciados de 6 a 35 palavras com palavra-chave AWS; Médio valida cenários de 25 a 85 palavras e alternativas concisas; Difícil valida cenários de arquitetura de 45 a 160 palavras e alternativas sem frases explicativas. O backend também verifica estrutura, quantidade de alternativas e resposta correta.
-- **Feedback por alternativa no Modo Estudo:** após confirmar, cada alternativa recebe sua própria justificativa vinculada ao identificador A/B/C/D, evitando trocar o motivo da opção escolhida pelo da resposta correta.
-- **Alternativas desconhecidas:** marque independentemente quais opções ainda não conhece; elas ficam associadas à questão/conceito no relatório e não interferem na resposta nem na nota.
-- **Feedback e avaliação:** no Modo Estudo, reporte questão errada (classificando enunciado ou resposta), repetida, dificuldade inadequada ou resposta viciada. Ao concluir, avalie o simulado com estrelas e comentário opcional.
-- **Triagem auditável:** os reports são registrados, deduplicados e analisados pela IA antes de serem usados em gerações futuras. Feedbacks ambíguos ficam aguardando validação; nenhuma questão é alterada automaticamente. O modelo não é considerado treinado.
-- **Monitoramento da geração por feedback:** o dashboard separa registros únicos, duplicatas, aprovados, pendentes, uso em prompts, questões geradas e correções editoriais realmente registradas. Resolução exige evidência de exposição posterior; o histórico diário fica persistido.
-- **Sem pistas durante a prova:** o navegador recebe só enunciado, domínio e alternativas (embaralhadas por tentativa). Tópico, gabarito e explicação ficam no servidor.
-- **Sem repetição:** questões já apresentadas ao usuário não voltam enquanto houver inéditas; se faltarem, novas questões são geradas, validadas contra duplicatas e pistas, e salvas no banco.
-- **Relatórios:** acertos, erros, "Não sei", não respondidas, percentual, pontuação estimada, desempenho por domínio e por tópico e revisão detalhada (Modo Estudo).
-- **Seleção de subtópicos:** simulados direcionados dividem as questões em 50% com resposta correta nos subtópicos selecionados e 50% em outros subtópicos do mesmo domínio; totais ímpares arredondam a metade selecionada para cima. A lista é embaralhada no servidor. Se faltar conteúdo para cumprir a proporção, a API informa a impossibilidade.
-- **"Gerar simulado com os tópicos em que errei":** mantém o fluxo de recuperação existente, com pelo menos 40% das questões diretamente nos subtópicos fracos e o restante no mesmo domínio.
-- **Tema escuro:** preferência de tema claro/escuro/sistema via `next-themes`, com paleta Slate e suporte a hidratação no layout raiz.
-- **Progresso salvo no servidor:** recarregar a página ou voltar pelo histórico continua o simulado.
-- **Expiração de sessão:** sessão inválida por inatividade (30 minutos por padrão) ou por validade máxima (7 dias), verificada no servidor. Os limites podem ser ajustados com `AUTH_SESSION_IDLE_MINUTES` e `AUTH_SESSION_MAX_DAYS`.
+## Funcionalidades presentes
 
----
+- Cadastro e login com Better Auth e PostgreSQL local.
+- Simulados de 15, 30, 45 ou 65 questões, com seleção de domínios e subtópicos.
+- Quatro alternativas e a opção "Não sei" em cada questão.
+- Correção no servidor, distinguindo correta, errada, "Não sei" e não respondida.
+- Modos Estudo e Prova, níveis de dificuldade, progresso salvo e histórico por conta.
+- Relatórios por domínio e tópico e recuperação direcionada a erros e dúvidas.
+- Seleção de questões inéditas por usuário, limitada à disponibilidade do banco local.
+- Registro de problemas nas questões e área administrativa de acompanhamento de feedback.
+- Tema claro e escuro.
 
-## 📋 Pré-requisitos no Windows
+Esses fluxos estão implementados no código e parte deles é coberta pelos testes automatizados. Isso não significa que todos os cenários da interface foram validados manualmente.
 
-Antes de rodar o projeto, certifique-se de que os seguintes softwares estão instalados:
+## Tecnologias
 
-1. **Node.js** (versão 20 ou superior — testado no Node.js v24.22)
-2. **npm** (versão 10 ou superior)
-3. **Git** (instalado em `C:\Program Files\Git`)
-4. **PostgreSQL** (versão 16 ou superior — testado no PostgreSQL 18 local)
+Next.js 15 (App Router), React, TypeScript estrito, Tailwind CSS, Prisma, PostgreSQL e Better Auth. Testes com Vitest e Playwright.
 
-> 💡 **Dica sobre o PATH no Windows:** Se o comando `git` ou `psql` não for reconhecido no PowerShell, certifique-se de abrir um novo terminal após a instalação para recarregar as variáveis de ambiente.
+A aplicação e o banco funcionam localmente no Windows, sem Docker e sem necessidade de serviços pagos ou de uma conta AWS. Não há implantação em nuvem neste projeto.
 
----
+## Execução local no Windows
 
-## 🚀 Instalação e Execução
+Pré-requisitos: Git, Node.js e npm, PostgreSQL instalado e em execução. A preparação atual foi validada com Node.js 24.22.1 e npm 11.19.1. As dependências exatas estão no `package-lock.json`.
 
-### 1. Clonar ou Acessar a Pasta do Projeto
-```powershell
-cd "c:\Users\gusta\OneDrive\Área de Trabalho\CURSO.EDN\projetos\awsSimulado"
-```
+1. Abra o PowerShell na pasta do projeto e instale as dependências:
 
-### 2. Instalar as Dependências
-```powershell
-npm install
-```
+   ```powershell
+   npm ci
+   Copy-Item .env.example .env
+   ```
 
-### 3. Configurar as Variáveis de Ambiente
-Copie o arquivo de exemplo para criar o seu `.env.local`:
-```powershell
-Copy-Item .env.example .env.local
-```
-Abra `.env.local` e configure a senha do seu usuário PostgreSQL local.
+   Copie o exemplo somente se ainda não tiver seu próprio `.env`. Não sobrescreva configurações existentes. O Prisma CLI lê `.env`; o Next.js também lê `.env.local`, que tem prioridade. Se ambos existirem, mantenha as configurações coerentes para não usar bancos diferentes.
 
-### 4. Aplicar as Migrations no PostgreSQL Local
-```powershell
-npx prisma migrate deploy
-```
+2. Edite `.env` localmente:
 
-### 5. Executar os Testes Automatizados
+   - `DATABASE_URL`: usuário, senha e nome do banco PostgreSQL local. Crie antes um banco vazio com esse nome pelo pgAdmin ou psql. Se a senha tiver caracteres especiais, use a codificação adequada na URL.
+   - `BETTER_AUTH_SECRET`: segredo aleatório exclusivo, com pelo menos 32 caracteres. Não use o texto de exemplo.
+   - `BETTER_AUTH_URL` e `NEXT_PUBLIC_APP_URL`: mantenha `http://localhost:3000` para execução local.
+   - `GEMINI_API_KEY`: deixe vazio para não fazer chamadas externas.
+   - `ADMIN_EMAIL` e `ADMIN_PASSWORD`: necessários apenas para criar uma conta administrativa pelo seed.
+
+3. Gere o cliente Prisma e aplique as migrations no banco local:
+
+   ```powershell
+   npm run prisma:generate
+   npx prisma migrate deploy
+   ```
+
+   As migrations devem ser aplicadas com o dono do banco. O script `prisma/sql/least-privilege-role.sql` permite preparar um usuário com privilégios menores para a aplicação; leia suas instruções antes de executar. O banco inicial de questões é carregado pelo serviço ao selecionar questões, não pelo seed administrativo.
+
+4. Inicie a aplicação:
+
+   ```powershell
+   npm run dev
+   ```
+
+   Acesse [localhost:3000](http://localhost:3000), crie uma conta e comece um simulado. Sem geração externa, a disponibilidade varia conforme os filtros e as questões já vistas. Se faltarem questões inéditas, a aplicação informa a limitação.
+
+5. Opcionalmente, após configurar as credenciais administrativas locais:
+
+   ```powershell
+   npx prisma db seed
+   ```
+
+   Esse comando cria ou atualiza a conta administrativa e invalida suas sessões anteriores. Não é necessário para o uso comum.
+
+## Validação
+
 ```powershell
 npm run test
+npm run typecheck
+npm run lint
+npm run build
 ```
 
-### 6. Iniciar o Servidor de Desenvolvimento
+Os testes de integração usam PostgreSQL real e criam/excluem registros de teste. Use um banco local dedicado a testes, com as migrations aplicadas, sem dados importantes. A integração Gemini é simulada nos testes; sua execução não comprova a qualidade de respostas de um serviço externo.
+
+Para os testes de navegador, prepare o build e o Chromium:
+
 ```powershell
-npm run dev
-```
-Abra o navegador em: [http://localhost:3000](http://localhost:3000).
-
----
-
-## 🛠️ Comandos Disponíveis
-
-| Comando | Descrição |
-|---|---|
-| `npm run dev` | Servidor de desenvolvimento (`localhost:3000`) |
-| `npm run test` | Testes unitários e de integração (Vitest, exige PostgreSQL local) |
-| `npm run test:e2e` | Testes de navegador (Playwright) contra o build de produção — rode `npm run build` antes e, na primeira vez, `npx playwright install chromium` |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run build` / `npm run start` | Build e execução de produção |
-| `npx prisma migrate deploy` | Aplica as migrations no banco local |
-
----
-
-## 🗂️ Estrutura Principal
-
-```text
-src/
-├── app/
-│   ├── page.tsx                  # Redireciona para /login ou /simulado
-│   ├── login/, cadastro/         # Páginas públicas (redirecionam se já logado)
-│   ├── simulado/page.tsx         # Configuração, prova e resultado (protegida)
-│   ├── dashboard/page.tsx        # Histórico e relatório de feedback (protegida)
-│   └── api/                      # simulados e relatório de feedback
-├── components/                   # UI do simulado, resultado e monitoramento
-├── lib/
-│   ├── exam-service.ts           # Regras do simulado com verificação de posse
-│   ├── question-generator.ts     # Seleção sem repetição + geração quando faltar
-│   ├── question-quality.ts       # Duplicatas aproximadas e detecção de pistas
-│   ├── gemini.ts                 # Geração de questões (somente servidor)
-│   ├── examEngine.ts             # Sanitização e correção
-│   ├── feedback-report.ts        # Métricas observadas e snapshots diários
-│   ├── session-policy.ts         # Limites de inatividade e validade máxima
-│   └── api.ts, auth.ts, server-auth.ts
-├── middleware.ts                 # Bloqueia páginas/APIs sem cookie de sessão
-└── data/mockQuestions.ts         # Banco inicial (66 questões)
-prisma/
-├── schema.prisma, migrations/
-└── sql/least-privilege-role.sql  # Usuário do banco com privilégios mínimos
-tests/                            # Vitest (unit/integração) e tests/e2e (Playwright)
+npx playwright install chromium
+npm run build
+npm run test:e2e
 ```
 
----
+O Playwright inicia o servidor na porta 3000, que precisa estar livre. Os testes administrativos dependem da conta configurada nas variáveis de ambiente e criada pelo seed.
 
-## 🔒 Segurança
+## Limitações e próximos passos
 
-1. **Gabarito protegido:** durante a prova o servidor envia apenas enunciado, domínio e alternativas. No Modo Prova, gabarito e explicações nunca são enviados, nem depois de finalizar.
-2. **Isolamento entre contas:** toda consulta filtra por `userId` da sessão; simulado de outra conta responde 404. Testado em `tests/examService.test.ts`, `tests/apiRoutes.test.ts` e `tests/e2e/simulado.spec.ts`.
-3. **Correção no servidor:** as questões de cada tentativa ficam gravadas no banco; IDs enviados pelo cliente não alteram a correção.
-4. **Banco com privilégios mínimos:** execute `prisma/sql/least-privilege-role.sql` como dono do banco e use o usuário `aws_simulado_app` na `DATABASE_URL` da aplicação (migrations continuam com o dono).
-5. **Sem segredos versionados:** `.env` e `.env.local` ficam fora do Git.
+- Projeto educacional independente, sem vínculo ou aprovação da AWS. Questões e explicações precisam de revisão técnica; a nota estimada não equivale à pontuação oficial nem garante aprovação.
+- O banco local é finito. Não é possível garantir todos os tamanhos, dificuldades e filtros sem conteúdo suficiente. A recuperação também depende dessa disponibilidade.
+- **Regra de negócio formalizada:**
+  - No Modo Prova, o sistema não revela o gabarito nem as explicações antes da finalização do simulado.
+  - No Modo Estudo, após a confirmação da resposta, o usuário recebe feedback e explicações daquela questão para fins pedagógicos, conforme o comportamento já implementado.
+  - Essa distinção entre os modos está refletida nos testes e no fluxo do produto e não deve ser tratada como falha de segurança, mas como regra de aprendizagem intencional.
+- A integração Gemini existente faz chamadas a um serviço externo se uma chave válida estiver configurada. Ela fica fora do modo estritamente local; mantenha a chave vazia nesta fase. Geração e triagem automática não garantem correção pedagógica e não treinam um modelo.
+- Não há fluxo de recuperação de senha configurado com envio de e-mail. Uso público, hospedagem e operação em produção não foram validados nesta preparação.
+- Próximos passos: corrigir a divergência do Modo Estudo, revisar o conteúdo local e testar uma instalação do zero e os fluxos completos no navegador.
 
----
+## Organização
 
-## ✅ Resultados da Verificação
+- `src/app/`: páginas e rotas de API.
+- `src/components/`: componentes da interface.
+- `src/lib/`: autenticação, seleção, correção e persistência.
+- `src/data/`: questões locais.
+- `src/types/`: tipos compartilhados.
+- `prisma/`: schema, migrations e seed administrativo.
+- `tests/`: testes unitários, de integração e de navegador.
 
-Executados em 27/10/2026 (Ubuntu, Node 24.19, PostgreSQL local). Detalhes em `IMPLEMENTATION_PLAN.md`.
+`PROJECT_SPEC.md` e `IMPLEMENTATION_PLAN.md` registram o planejamento original e podem conter etapas ou descrições antigas. Consulte o código e os testes para conferir o comportamento atual.
 
-| Verificação | Resultado |
-|---|---|
-| `npm run test` | 11 arquivos, 56 testes aprovados (também com o usuário de privilégios mínimos) |
-| `npm run test:e2e` | 3 testes de navegador aprovados |
-| `npm run lint` | sem avisos nem erros |
-| `npm run typecheck` | sem erros |
-| `npm run build` | concluído |
+## Cuidados antes de compartilhar
+
+Nunca publique `.env`, `.env.local`, chaves, senhas, dumps do banco ou dados reais de usuários. `.env.example` contém somente referências para configuração. O `.gitignore` ajuda a evitar inclusões acidentais, mas não remove dados já presentes no histórico.
+
+O histórico local existente foi preservado nesta preparação. Ele contém metadados de autoria dos commits e referências antigas ao caminho local de desenvolvimento. Revise esses metadados antes de tornar o histórico público. O destino no GitHub ainda precisa ser combinado; não há publicação automática.
